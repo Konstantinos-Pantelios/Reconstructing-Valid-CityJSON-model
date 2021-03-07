@@ -6,6 +6,7 @@
 void DemoDCEL();
 void printDCEL(DCEL & D);
 
+//import from hw1 code
 
 /* 
   Example functions that you could implement. But you are 
