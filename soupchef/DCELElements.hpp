@@ -6,6 +6,7 @@
 struct Vertex;
 struct HalfEdge;
 struct Face;
+struct Vindex;
 
 /* 
   The base class for all DCEL elements. The Vertex, HalfEdge, and Face class inherit from this base.
@@ -70,7 +71,10 @@ std::ostream& operator<<(std::ostream& os, const DCELElement& f) {
     os << " [has dangling link]";
   }
   return os;
-} 
+}
+
+
+
 
 /*
   The Vertex element is the simplest one. It just holds the x,y,z coordinates.

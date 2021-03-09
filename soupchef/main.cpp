@@ -4,8 +4,11 @@
 #include <string>
 #include <list>
 #include <vector>
+#include<map>
 #include "DCEL.hpp"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmultichar"
 // forward declarations; these functions are given below main()
 void DemoDCEL();
 void printDCEL(DCEL & D);
@@ -23,7 +26,6 @@ void read(std::ifstream &stream_in, std::vector<std::vector<double>> &v, std::ve
                 while (iss >> word)
                     coordinates.push_back(std::stof(word));
                 if (coordinates.size() == 3) v.push_back({coordinates[0], coordinates[1], coordinates[2]});
-//else vertices.push_back(Point());
             } else if (word == "f") {
                 f.push_back(std::vector<unsigned int>());
                 while (iss >> word) f.back().push_back((unsigned int) std::stoul(word));
@@ -31,6 +33,7 @@ void read(std::ifstream &stream_in, std::vector<std::vector<double>> &v, std::ve
         }
     }
 }
+
 /* 
   Example functions that you could implement. But you are 
   free to organise/modify the code however you want.
@@ -59,8 +62,8 @@ void exportCityJSON(DCEL & D, const char *file_out) {
 
 
 int main(int argc, const char * argv[]) {
-  const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk_soup.obj";
-  const char *file_out = "../cube.json";
+  const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube_soup.obj";
+  const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube.json";
 
 
 
@@ -81,11 +84,15 @@ int main(int argc, const char * argv[]) {
     read(stream_in,vertices,faces);
   //~~~~~~~~~~~~~~~~~~~~~ 09-03-2021 Read .obj file into memory - vertices and faces ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 
-
+std::map<unsigned int, Vertex> v_index;
+for (unsigned int i = 0; i < vertices.size(); i++){
+    v_index.insert(i,Vertex);
+}
     for (unsigned int i = 0; i < faces.size(); i++) {
         Vertex *v0 = D.createVertex(vertices[(faces[i][0])-1][0], vertices[(faces[i][0])-1][1], vertices[(faces[i][0])-1][2]);
         Vertex *v1 = D.createVertex(vertices[(faces[i][1])-1][0], vertices[(faces[i][1])-1][1], vertices[(faces[i][1])-1][2]);
         Vertex *v2 = D.createVertex(vertices[(faces[i][2])-1][0], vertices[(faces[i][2])-1][1], vertices[(faces[i][2])-1][2]);
+        v_index.insert(faces[i][0]-1,v0);
 
         HalfEdge* e0 = D.createHalfEdge();
         HalfEdge* e1 = D.createHalfEdge();
@@ -156,7 +163,10 @@ int main(int argc, const char * argv[]) {
   // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
   
   // 5. write the meshes with their faces to a valid CityJSON output file.
-
+    std::fstream fl;
+    fl.open (file_out,std::fstream::in | std::fstream::out | std::fstream::trunc);
+    fl << "\"CityObjects\": {\n\t\"type\": \"Building\",\n\t\"geometry\": [{\n\t\t\"type\": \"MultiSurface\"m\n\t\t\"lod\": 2,\n\t\t\"boundaries\":";
+    fl.close();
   return 0;
 }
 
@@ -338,3 +348,4 @@ void DemoDCEL() {
   printDCEL(D);
 
 }
+#pragma clang diagnostic pop
