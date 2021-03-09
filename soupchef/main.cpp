@@ -5,7 +5,9 @@
 #include <list>
 #include <vector>
 #include<map>
+#include <unordered_map>
 #include "DCEL.hpp"
+
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmultichar"
@@ -15,7 +17,9 @@ void printDCEL(DCEL & D);
 
 //~~~~~~~~~~~~~~~~~~~~~ 09-03-2021 Read .obj file into memory - vertices and faces ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 //import from hw1 code
-void read(std::ifstream &stream_in, std::vector<std::vector<double>> &v, std::vector<std::vector<unsigned int>> &f) {
+void read(const char *file_in, std::vector<std::vector<double>> &v, std::vector<std::vector<unsigned int>> &f) {
+    std::ifstream stream_in;
+    stream_in.open(file_in);
     if (stream_in.is_open()) {
         std::string line;
         while (getline(stream_in, line)) {
@@ -43,58 +47,30 @@ void read(std::ifstream &stream_in, std::vector<std::vector<double>> &v, std::ve
 */
 // 1.
 void importOBJ(DCEL & D, const char *file_in) {
-  // to do
-}
-// 2.
-void groupTriangles(DCEL & D) {
-  // to do
-}
-// 3.
-void orientMeshes(DCEL & D) {
-  // to do
-}
-// 4.
-void mergeCoPlanarFaces(DCEL & D) {
-  // to do
-}
-// 5.
-void exportCityJSON(DCEL & D, const char *file_out) {
-  // to do
-}
-
-
-int main(int argc, const char * argv[]) {
-  const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube_soup.obj";
-  const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube.json";
-
-
-
-
-  // Demonstrate how to use the DCEL to get you started (see function implementation below)
-  // you can remove this from the final code
-  //DemoDCEL();
-
-  // create an empty DCEL
-  DCEL D;
-  // 1. read the triangle soup from the OBJ input file and convert it to the DCEL,
-
-  //~~~~~~~~~~~~~~~~~~~~~ 09-03-2021 Read .obj file into memory - vertices and faces ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-    std::vector<std::vector<double>> vertices;
-    std::vector<std::vector<unsigned int>> faces;
-    std::ifstream stream_in;
-    stream_in.open(file_in);
-    read(stream_in,vertices,faces);
-  //~~~~~~~~~~~~~~~~~~~~~ 09-03-2021 Read .obj file into memory - vertices and faces ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-
-std::map<unsigned int, std::vector<double>> v_index;
-for (unsigned int i = 0; i < vertices.size(); i++){
-    v_index.emplace(i,vertices[i]);
-}
-
+  std::vector<std::vector<double>> vertices;
+  std::vector<std::vector<unsigned int>> faces;
+    read(file_in,vertices,faces);
+  /*
+  std::unordered_map<unsigned int, Vertex*> hashmap;
+  read(file_in,vertices,faces);
+  unsigned int c = 0;
+  for(auto const& i : vertices){
+      Vertex* v = D.createVertex(i[0],i[1],i[2],c);
+      hashmap.insert(std::make_pair(c,v));
+      c++;
+  }
+  for(auto const& j: faces){
+      Face* f = D.createFace();
+      HalfEdge* e0 = D.createHalfEdge();
+      HalfEdge* e1 = D.createHalfEdge();
+      HalfEdge* e2 = D.createHalfEdge();
+      e0->origin = hashmap[j[0]-1];
+      e0->destination = hashmap[j[1]-1];
+      e0->incidentFace = f; */
     for (unsigned int i = 0; i < faces.size(); i++) {
-        Vertex *v0 = D.createVertex(vertices[(faces[i][0])-1][0], vertices[(faces[i][0])-1][1], vertices[(faces[i][0])-1][2], faces[i][0]); //check indices for 0-1
-        Vertex *v1 = D.createVertex(vertices[(faces[i][1])-1][0], vertices[(faces[i][1])-1][1], vertices[(faces[i][1])-1][2], faces[i][1]);
-        Vertex *v2 = D.createVertex(vertices[(faces[i][2])-1][0], vertices[(faces[i][2])-1][1], vertices[(faces[i][2])-1][2], faces[i][2]);
+        Vertex* v0 = D.createVertex(vertices[(faces[i][0])-1][0], vertices[(faces[i][0])-1][1], vertices[(faces[i][0])-1][2], faces[i][0]-1); //check indices for 0-1
+        Vertex* v1 = D.createVertex(vertices[(faces[i][1])-1][0], vertices[(faces[i][1])-1][1], vertices[(faces[i][1])-1][2], faces[i][1]-1);
+        Vertex* v2 = D.createVertex(vertices[(faces[i][2])-1][0], vertices[(faces[i][2])-1][1], vertices[(faces[i][2])-1][2], faces[i][2]-1);
 
         HalfEdge* e0 = D.createHalfEdge();
         HalfEdge* e1 = D.createHalfEdge();
@@ -118,10 +94,10 @@ for (unsigned int i = 0; i < vertices.size(); i++){
         e3->next = e5;
         e3->prev = e4;
 
-        /*
-        If a half-edge is incident to 'open space' (ie not an actual face with an exterior boundary),
-        we use the infiniteFace which is predifined in the DCEL class
-        */
+
+        //If a half-edge is incident to 'open space' (ie not an actual face with an exterior boundary),
+        //we use the infiniteFace which is predifined in the DCEL class
+
         e3->incidentFace = D.infiniteFace();
 
         e1->origin = v1;
@@ -155,6 +131,58 @@ for (unsigned int i = 0; i < vertices.size(); i++){
         fi->exteriorEdge = e0;
     }
 
+  }
+
+
+// 2.
+void groupTriangles(DCEL & D) {
+  // to do
+}
+// 3.
+void orientMeshes(DCEL & D) {
+  // to do
+}
+// 4.
+void mergeCoPlanarFaces(DCEL & D) {
+  // to do
+}
+// 5.
+void exportCityJSON(DCEL & D, const char *file_out) {
+  // to do
+}
+
+
+int main(int argc, const char * argv[]) {
+  const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube_soup.obj";
+  const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube.json";
+
+
+
+
+  // Demonstrate how to use the DCEL to get you started (see function implementation below)
+  // you can remove this from the final code
+  //DemoDCEL();
+
+  // create an empty DCEL
+  DCEL D;
+  // 1. read the triangle soup from the OBJ input file and convert it to the DCEL,
+
+    importOBJ(D,file_in);
+    D.vertices();
+  //~~~~~~~~~~~~~~~~~~~~~ 09-03-2021 Read .obj file into memory - vertices and faces ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+    std::vector<std::vector<double>> vertices;
+    std::vector<std::vector<unsigned int>> faces;
+    read(file_in,vertices,faces);
+  //~~~~~~~~~~~~~~~~~~~~~ 09-03-2021 Read .obj file into memory - vertices and faces ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+
+std::map<unsigned int, std::vector<double>> v_index;
+
+for (unsigned int i = 0; i < vertices.size(); i++){
+    v_index.emplace(i,vertices[i]);
+}
+/* WORKS
+
+    */
     printDCEL(D);
 
     D.vertices();
@@ -172,7 +200,7 @@ for (unsigned int i = 0; i < vertices.size(); i++){
     std::fstream fl;
     fl.open (file_out,std::fstream::in | std::fstream::out | std::fstream::trunc);
     fl<<"{\n\"type\": \"CityJSON\",\n\"version\": \"1.0\",\n";
-    fl << "\"CityObjects\": {\n\t\"type\": \"Building\",\n\t\"geometry\": [{\n\t\t\"type\": \"MultiSurface\",\n\t\t\"lod\": 2,\n\t\t\"boundaries\": [\n\t\t\t";
+    fl << "\"CityObjects\": {\"id-1\" : {\n\t\"type\": \"Building\",\n\t\"geometry\": [{\n\t\t\"type\": \"MultiSurface\",\n\t\t\"lod\": 2,\n\t\t\"boundaries\": [\n\t\t\t";
 
 
 
@@ -180,16 +208,16 @@ for (unsigned int i = 0; i < vertices.size(); i++){
         unsigned int origin = i->exteriorEdge->origin->i; //->exteriorEdge->origin->i;
         unsigned int destination = i->exteriorEdge->destination->i;
         unsigned int previous = i->exteriorEdge->prev->origin->i;
-        if (i == D.faces().back()) {fl << "[[" << origin <<", "<<destination<<", "<<previous << "]]\n\t\t]\n\t}]\n},\n"; break;}
+        if (i == D.faces().back()) {fl << "[[" << origin <<", "<<destination<<", "<<previous << "]]\n\t\t]\n\t}]\n}},\n"; break;}
         fl << "[[" << origin <<", "<<destination<<", "<<previous << "]], ";
     }
     fl << "\"vertices\": [\n";
 
-    for (auto const& i : D.vertices()) {
-        double x = i->x; //->exteriorEdge->origin->i;
-        double y = i->y;
-        double z = i->z;
-        if (i == D.vertices().back()) {fl << "\t[" << x <<", "<< y <<", "<< z << "]\n\t]\n}"; break;}
+    for (auto const& i : vertices) {
+        double x = i[0]; //->exteriorEdge->origin->i;
+        double y = i[1];
+        double z = i[2];
+        if (i == vertices.back()) {fl << "\t[" << x <<", "<< y <<", "<< z << "]\n\t]\n}"; break;}
         fl << "\t[" << x <<", "<< y<<", "<< z << "],\n";
     }
 
