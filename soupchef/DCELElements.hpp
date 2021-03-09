@@ -6,7 +6,7 @@
 struct Vertex;
 struct HalfEdge;
 struct Face;
-struct Vindex;
+
 
 /* 
   The base class for all DCEL elements. The Vertex, HalfEdge, and Face class inherit from this base.
@@ -85,8 +85,9 @@ struct Vertex : DCELElement {
   double x;
   double y;
   double z;
+  unsigned int i;
   
-  Vertex(double x, double y, double z) : x(x), y(y), z(z) {}
+  Vertex(double x, double y, double z, unsigned i) : x(x), y(y), z(z), i(i){}
   Vertex(const Vertex&) = delete;
 
   bool hasDanglingLink() const override;

@@ -13,6 +13,7 @@
 void DemoDCEL();
 void printDCEL(DCEL & D);
 
+//~~~~~~~~~~~~~~~~~~~~~ 09-03-2021 Read .obj file into memory - vertices and faces ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 //import from hw1 code
 void read(std::ifstream &stream_in, std::vector<std::vector<double>> &v, std::vector<std::vector<unsigned int>> &f) {
     if (stream_in.is_open()) {
@@ -33,6 +34,7 @@ void read(std::ifstream &stream_in, std::vector<std::vector<double>> &v, std::ve
         }
     }
 }
+//~~~~~~~~~~~~~~~~~~~~~ 09-03-2021 Read .obj file into memory - vertices and faces ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 
 /* 
   Example functions that you could implement. But you are 
@@ -84,15 +86,15 @@ int main(int argc, const char * argv[]) {
     read(stream_in,vertices,faces);
   //~~~~~~~~~~~~~~~~~~~~~ 09-03-2021 Read .obj file into memory - vertices and faces ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 
-std::map<unsigned int, Vertex> v_index;
+std::map<unsigned int, std::vector<double>> v_index;
 for (unsigned int i = 0; i < vertices.size(); i++){
-    v_index.insert(i,Vertex);
+    v_index.emplace(i,vertices[i]);
 }
+
     for (unsigned int i = 0; i < faces.size(); i++) {
-        Vertex *v0 = D.createVertex(vertices[(faces[i][0])-1][0], vertices[(faces[i][0])-1][1], vertices[(faces[i][0])-1][2]);
-        Vertex *v1 = D.createVertex(vertices[(faces[i][1])-1][0], vertices[(faces[i][1])-1][1], vertices[(faces[i][1])-1][2]);
-        Vertex *v2 = D.createVertex(vertices[(faces[i][2])-1][0], vertices[(faces[i][2])-1][1], vertices[(faces[i][2])-1][2]);
-        v_index.insert(faces[i][0]-1,v0);
+        Vertex *v0 = D.createVertex(vertices[(faces[i][0])-1][0], vertices[(faces[i][0])-1][1], vertices[(faces[i][0])-1][2], faces[i][0]); //check indices for 0-1
+        Vertex *v1 = D.createVertex(vertices[(faces[i][1])-1][0], vertices[(faces[i][1])-1][1], vertices[(faces[i][1])-1][2], faces[i][1]);
+        Vertex *v2 = D.createVertex(vertices[(faces[i][2])-1][0], vertices[(faces[i][2])-1][1], vertices[(faces[i][2])-1][2], faces[i][2]);
 
         HalfEdge* e0 = D.createHalfEdge();
         HalfEdge* e1 = D.createHalfEdge();
@@ -154,6 +156,9 @@ for (unsigned int i = 0; i < vertices.size(); i++){
     }
 
     printDCEL(D);
+
+    D.vertices();
+
   // 2. group the triangles into meshes,
   
   // 3. determine the correct orientation for each mesh and ensure all its triangles 
@@ -161,12 +166,36 @@ for (unsigned int i = 0; i < vertices.size(); i++){
   //    are pointing outwards).
   
   // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
-  
-  // 5. write the meshes with their faces to a valid CityJSON output file.
+
+
+  // 5. write the meshes with their faces to a valid CityJSON output file. ~~~~~~~~~~~~~~ 09-03-2021~~~~~~~~~~~~~//
     std::fstream fl;
     fl.open (file_out,std::fstream::in | std::fstream::out | std::fstream::trunc);
-    fl << "\"CityObjects\": {\n\t\"type\": \"Building\",\n\t\"geometry\": [{\n\t\t\"type\": \"MultiSurface\"m\n\t\t\"lod\": 2,\n\t\t\"boundaries\":";
+    fl<<"{\n\"type\": \"CityJSON\",\n\"version\": \"1.0\",\n";
+    fl << "\"CityObjects\": {\n\t\"type\": \"Building\",\n\t\"geometry\": [{\n\t\t\"type\": \"MultiSurface\",\n\t\t\"lod\": 2,\n\t\t\"boundaries\": [\n\t\t\t";
+
+
+
+    for (auto const& i : D.faces()) {
+        unsigned int origin = i->exteriorEdge->origin->i; //->exteriorEdge->origin->i;
+        unsigned int destination = i->exteriorEdge->destination->i;
+        unsigned int previous = i->exteriorEdge->prev->origin->i;
+        if (i == D.faces().back()) {fl << "[[" << origin <<", "<<destination<<", "<<previous << "]]\n\t\t]\n\t}]\n},\n"; break;}
+        fl << "[[" << origin <<", "<<destination<<", "<<previous << "]], ";
+    }
+    fl << "\"vertices\": [\n";
+
+    for (auto const& i : D.vertices()) {
+        double x = i->x; //->exteriorEdge->origin->i;
+        double y = i->y;
+        double z = i->z;
+        if (i == D.vertices().back()) {fl << "\t[" << x <<", "<< y <<", "<< z << "]\n\t]\n}"; break;}
+        fl << "\t[" << x <<", "<< y<<", "<< z << "],\n";
+    }
+
     fl.close();
+  // 5. write the meshes with their faces to a valid CityJSON output file. ~~~~~~~~~~~~~~ 09-03-2021~~~~~~~~~~~~~//
+
   return 0;
 }
 
@@ -222,7 +251,7 @@ void DemoDCEL() {
   v0
   (0,0,0)
 
-  We will construct the DCEL of a single triangle 
+  We will construct the DCEL of a single triangle
   in the plane z=0 (as shown above).
 
   This will require:
@@ -232,9 +261,9 @@ void DemoDCEL() {
 
   */
   std::cout << "\n/// STEP 2 Adding triangle vertices...\n";
-  Vertex* v0 = D.createVertex(0,0,0);
-  Vertex* v1 = D.createVertex(1,0,0);
-  Vertex* v2 = D.createVertex(0,1,0);
+  Vertex* v0 = D.createVertex(0,0,0,1);
+  Vertex* v1 = D.createVertex(1,0,0,2);
+  Vertex* v2 = D.createVertex(0,1,0,3);
   printDCEL(D);
 
   std::cout << "\n/// STEP 3 Adding triangle half-edges...\n";
@@ -264,8 +293,8 @@ void DemoDCEL() {
   e3->next = e5;
   e3->prev = e4;
 
-  /* 
-  If a half-edge is incident to 'open space' (ie not an actual face with an exterior boundary), 
+  /*
+  If a half-edge is incident to 'open space' (ie not an actual face with an exterior boundary),
   we use the infiniteFace which is predifined in the DCEL class
   */
   e3->incidentFace = D.infiniteFace();
@@ -303,7 +332,7 @@ void DemoDCEL() {
 
 
   std::cout << "\n/// STEP 6 Traversing exterior vertices of f0...\n";
-  /* 
+  /*
   if all is well in the DCEL, following a chain of half-edges (ie keep going to e.next)
   should lead us back the the half-edge where we started.
   */
@@ -313,21 +342,21 @@ void DemoDCEL() {
     std::cout << " -> " << *e->origin << "\n";
     e = e->next;
   } while ( e_start!=e) ; // we stop the loop when e_start==e (ie. we are back where we started)
-  
-  
+
+
   std::cout << "\n/// STEP 7 eliminating v0...\n";
   v0->eliminate();
   printDCEL(D);
-  
-  /* 
-  We just eliminated v0. At the same time we know there are elements that still 
+
+  /*
+  We just eliminated v0. At the same time we know there are elements that still
   pointers to v0 (ie the edges e0, e2, e3, e5). This means we can NOT call D.cleanup()!
-  If you do this anyways, the program may crash. 
-  
+  If you do this anyways, the program may crash.
+
   Eg. if you uncomment the following there could be a crash/stall of the program.
   */
   // D.cleanup(); // this will remove v0 from memory (because we just eliminated v0 and the cleanup() function simply removes all the eliminated elements)
-  // std::cout << *v0 << "\n"; // we try to access that memory, but v0 is gone -> undefined behaviour 
+  // std::cout << *v0 << "\n"; // we try to access that memory, but v0 is gone -> undefined behaviour
   // std::cout << *e0->origin << "\n"; // this equivalent to the previous line (both point to the same memory address)
 
 
@@ -348,4 +377,5 @@ void DemoDCEL() {
   printDCEL(D);
 
 }
+
 #pragma clang diagnostic pop

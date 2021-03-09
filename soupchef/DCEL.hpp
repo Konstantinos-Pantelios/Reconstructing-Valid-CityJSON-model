@@ -62,8 +62,8 @@ class DCEL {
 
   Returns a pointer to the newly created vertex.
   */
-  Vertex * createVertex(double x, double y, double z) {
-    _vertices.emplace_back(std::make_unique<Vertex>(x,y,z));
+  Vertex * createVertex(double x, double y, double z, unsigned int i) {
+    _vertices.emplace_back(std::make_unique<Vertex>(x,y,z,i));
     // return pointer to the vertex we just created
     return _vertices.back().get();
   }
