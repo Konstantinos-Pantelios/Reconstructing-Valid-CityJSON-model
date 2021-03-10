@@ -232,6 +232,8 @@ void groupTriangles(DCEL & D) {
 }
 // 3.
 void orientMeshes(DCEL & D, std::vector<double> o, std::vector<double> d ,std::vector<std::vector<double>>& vertice) {
+    //TODO: Make the ray originate from the middle of the bounding box but with offset in X axis getting it out of bbox
+    //TODO: Set ray's destination to fall upon a triangle to ensure that the ray will hit at least one triagle: Do this by setting it as the centroid of a random triangle
   o = cornerpoints(vertice,"min"); //origin of ray
   d = cornerpoints(vertice,"max"); //destination of ray
   std::vector<Face *> ray_face;
