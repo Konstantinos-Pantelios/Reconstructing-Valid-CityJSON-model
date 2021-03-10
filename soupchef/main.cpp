@@ -232,8 +232,8 @@ void groupTriangles(DCEL & D) {
 }
 // 3.
 void orientMeshes(DCEL & D, std::vector<double> o, std::vector<double> d ,std::vector<std::vector<double>>& vertice) {
-  o = cornerpoints(vertice,"min");
-  d = cornerpoints(vertice,"max");
+  o = cornerpoints(vertice,"min"); //origin of ray
+  d = cornerpoints(vertice,"max"); //destination of ray
   std::vector<Face *> ray_face;
   for(auto const& i : D.faces()){
       if (intersects(o,d,i.get())){
@@ -247,8 +247,11 @@ void orientMeshes(DCEL & D, std::vector<double> o, std::vector<double> d ,std::v
   std::vector<double> fv2 {nearest->exteriorEdge->prev->origin->x, nearest->exteriorEdge->prev->origin->y,nearest->exteriorEdge->prev->origin->z};
   std::vector<double> e;
 
-  e = Normal(fv0,fv1,fv2); //FIX THIISSS!
+  e = Normal(fv0,fv2,fv1);
 
+  //double angle = acos((e[0]*o[0] + e[1]*o[1] + e[2]*o[2]) / sqrt((e[0]*e[0]+e[1]*e[1]+e[2]*e[2]) * (o[0]*o[0]+o[1]*o[1]+o[2]*o[2])));
+  double dot = e[0]*o[0] + e[1]*o[1] + e[2]*o[2]; //The correct orientation is when dot is positive
+  std::cout<<dot<<std::endl;
 }
 // 4.
 void mergeCoPlanarFaces(DCEL & D) {
