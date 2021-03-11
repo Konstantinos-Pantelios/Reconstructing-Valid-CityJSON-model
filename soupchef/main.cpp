@@ -21,7 +21,6 @@ void DemoDCEL();
 void printDCEL(DCEL & D);
 
 //~~~~~~~~~~~~~~~~~~~~~ 09-03-2021 Read .obj file into memory - vertices and faces ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-//import from hw1 code
 void read(const char *file_in, std::vector<std::vector<double>> &v, std::vector<std::vector<unsigned int>> &f) {
     std::ifstream stream_in;
     stream_in.open(file_in);
@@ -149,7 +148,7 @@ bool checkNormal(std::vector<double> v0,std::vector<double> v1, std::vector<doub
     double angle = acos((Nor[0]*ray[0] + Nor[1]*ray[1] + Nor[2]*ray[2]) / sqrt((Nor[0]*Nor[0]+Nor[1]*Nor[1]+Nor[2]*Nor[2]) * (ray[0]*ray[0]+ray[1]*ray[1]+ray[2]*ray[2])));
     double dot = Nor[0]*ray[0] + Nor[1]*ray[1] + Nor[2]*ray[2];
     std::cout<<dot<<" "<<angle <<std::endl;
-    if (dot<0) return true; //The correct orientation is when dot is negative
+    if (dot<0) return true; //The correct orientation is when dot is negative (means that the vectors have opposite-like direction.
     else if (dot>0) return false;
     else std::cout << "dot is 0";  //Think about the vertical case of dot=0/ Think of many cases if it waorks every time.
 }
@@ -182,19 +181,6 @@ std::vector<double> Centroid(HalfEdge *f){
     return c;
 }
 
-void fixor(Face* init) {
-    std::vector<HalfEdge*> e012 = {init->exteriorEdge, init->exteriorEdge->next, init->exteriorEdge->prev};
-    for (auto const& i : e012){
-        if (i->origin == i->twin->origin) {flip012_201(i->twin->incidentFace); fixor(i->twin->incidentFace);}
-    }
-    return;
-
-}
-/* 
-  Example functions that you could implement. But you are 
-  free to organise/modify the code however you want.
-  After each function you should have a DCEL without invalid elements!
-*/
 // 1.
 void importOBJ(DCEL & D, const char *file_in,std::vector<std::vector<double>>& vertices,std::vector<std::vector<unsigned int>>& faces,std::unordered_map<std::pair<unsigned int,unsigned int>, HalfEdge *, boost::hash<std::pair<unsigned int, unsigned int>>>& hashmap2) {
 
@@ -206,8 +192,6 @@ void importOBJ(DCEL & D, const char *file_in,std::vector<std::vector<double>>& v
         Vertex *v = D.createVertex(i[0], i[1], i[2], c);
         hashmap[c] = v;
     }
-
-
 
     for (auto const &j: faces) {
         Face *f = D.createFace();
@@ -262,14 +246,8 @@ void importOBJ(DCEL & D, const char *file_in,std::vector<std::vector<double>>& v
             e2->twin = etemp2;
             hashmap2[p2]->twin = e2;
         }
-
         f->exteriorEdge = e0;
         D.infiniteFace()->holes.push_back(e0);
-
-
-
-
-
     }
 }
 // 2.
@@ -277,7 +255,7 @@ void groupTriangles(DCEL & D) {
   // to do
 }
 // 3.
-void orientMeshes(DCEL & D ,std::vector<std::vector<double>>& vertice,std::unordered_map<std::pair<unsigned int,unsigned int>, HalfEdge *, boost::hash<std::pair<unsigned int, unsigned int>>>& hashmap2) {
+void orientMeshes(DCEL & D ,std::vector<std::vector<double>>& vertice) {
     std::vector<double> o;
     std::vector<double> d;
   auto minc = cornerpoints(vertice,"min"); //origin of ray
@@ -295,30 +273,24 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<double>>& vertice,std::unord
   std::vector<double> fv0 {nearest->exteriorEdge->origin->x, nearest->exteriorEdge->origin->y,nearest->exteriorEdge->origin->z};
   std::vector<double> fv1 {nearest->exteriorEdge->destination->x, nearest->exteriorEdge->destination->y,nearest->exteriorEdge->destination->z};
   std::vector<double> fv2 {nearest->exteriorEdge->prev->origin->x, nearest->exteriorEdge->prev->origin->y,nearest->exteriorEdge->prev->origin->z};
-  std::vector<double> e;
 
+//Check and fix if necessary the orientation of the initial face.
+//This face is the closest intersecting face of the ray with origin near the middle of bbox for y,z but outside bounds for x and
+//destination a random triangle's centroid (to ensure at least one intersecttion is happening).
    if (!checkNormal(fv0,fv1,fv2,o,d))
        flip012_201(nearest);
 
-   std::pair<unsigned int, unsigned int> p;
-   p.first = nearest->exteriorEdge->origin->i;
-    p.first = nearest->exteriorEdge->destination->i;
 
-   //fixor(nearest);
-
-
+// Fix the orientation of all the faces of the mesh.  ###########################################################
+// Start with "nearest" triangle which has the correct orientations and set the rest based on this. #############
    std::stack<Face* > facestack;
-   facestack.push(nearest);
    std::vector<Face* > traversed_faced;
-
+   facestack.push(nearest);
    while(!facestack.empty()){
-
        auto validface = facestack.top();
        traversed_faced.push_back(validface);
        facestack.pop();
-
        std::vector<HalfEdge*> e012 = {validface->exteriorEdge, validface->exteriorEdge->next, validface->exteriorEdge->prev};
-
 
        for (auto const& edgex : e012){
            if (std::find(traversed_faced.begin(),traversed_faced.end(), edgex->twin->incidentFace) != traversed_faced.end()){
@@ -329,7 +301,7 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<double>>& vertice,std::unord
                traversed_faced.push_back(edgex->twin->incidentFace);
        }
    }
-
+//###############################################################################################################3
 
 }
 
@@ -364,15 +336,13 @@ int main(int argc, const char * argv[]) {
     importOBJ(D, file_in, vertices, faces, hashmap2);
     printDCEL(D);
 
-    D.vertices();
-
     // 2. group the triangles into meshes,
 
     // 3. determine the correct orientation for each mesh and ensure all its triangles
     //    are consistent with this correct orientation (ie. all the triangle normals
     //    are pointing outwards).
 
-orientMeshes(D, vertices, hashmap2);
+    orientMeshes(D, vertices);
     // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
 
 
