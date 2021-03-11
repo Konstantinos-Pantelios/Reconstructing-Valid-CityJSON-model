@@ -9,6 +9,10 @@
 #include "DCEL.hpp"
 #include <cmath>
 #include <boost/functional/hash.hpp>
+#include <stack>
+#include <deque>
+#include <algorithm>
+
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmultichar"
@@ -133,7 +137,7 @@ Face* min_distance(std::vector<double> o, std::vector<Face *> ray_face){
 return in;
 }
 
-std::vector<double> Normal(std::vector<double> v0,std::vector<double> v1, std::vector<double> v2){
+bool checkNormal(std::vector<double> v0,std::vector<double> v1, std::vector<double> v2, std::vector<double>& o,std::vector<double>& d){
     std::vector<double> U = {v1[0]-v0[0], v1[1] - v0[1], v1[2] - v0[2]};
     std::vector<double> V = {v2[0]-v0[0], v2[1] - v0[1], v2[2] - v0[2]};
     std::vector<double> N = {U[1]*V[2] - U[2]*V[1],
@@ -141,7 +145,33 @@ std::vector<double> Normal(std::vector<double> v0,std::vector<double> v1, std::v
                              U[0]*V[1] - U[1]*V[0]};
     double mag = sqrt(N[0]*N[0]+N[1]*N[1]+N[2]*N[2]);
     const std::vector<double> Nor = {N[0]/mag, N[1]/mag, N[2]/mag};
-    return(Nor);
+    std::vector<double> ray = {d[0]-o[0], d[1]-o[1], d[2]-o[2]};
+    double angle = acos((Nor[0]*ray[0] + Nor[1]*ray[1] + Nor[2]*ray[2]) / sqrt((Nor[0]*Nor[0]+Nor[1]*Nor[1]+Nor[2]*Nor[2]) * (ray[0]*ray[0]+ray[1]*ray[1]+ray[2]*ray[2])));
+    double dot = Nor[0]*ray[0] + Nor[1]*ray[1] + Nor[2]*ray[2];
+    std::cout<<dot<<" "<<angle <<std::endl;
+    if (dot<0) return true; //The correct orientation is when dot is negative
+    else if (dot>0) return false;
+    else std::cout << "dot is 0";  //Think about the vertical case of dot=0/ Think of many cases if it waorks every time.
+}
+
+void flip012_201(Face* triangle){
+    Vertex* t0 = triangle->exteriorEdge->destination;
+    Vertex* t2 = triangle->exteriorEdge->prev->origin;
+    Vertex* t1 = triangle->exteriorEdge->origin;
+
+    triangle->exteriorEdge->origin = t0;
+    triangle->exteriorEdge->destination = t1;
+    triangle->exteriorEdge->next->origin = t2;
+    triangle->exteriorEdge->next->destination =t0;
+    triangle->exteriorEdge->prev->origin = t1;
+    triangle->exteriorEdge->prev->destination = t2;
+    HalfEdge* e1 = triangle->exteriorEdge->next;
+    HalfEdge* e2 = triangle->exteriorEdge->prev;
+    HalfEdge* tw1 = triangle->exteriorEdge->next->twin;
+    HalfEdge* tw2 = triangle->exteriorEdge->prev->twin;
+    triangle->exteriorEdge->next = e2;
+    triangle->exteriorEdge->prev = e1;
+    std::cout<<"flipped\n";
 }
 
 std::vector<double> Centroid(HalfEdge *f){
@@ -150,6 +180,15 @@ std::vector<double> Centroid(HalfEdge *f){
     auto v2 = f->prev->origin;
     std::vector<double> c = {(v0->x+v1->x+v2->x)/3, (v0->y+v1->y+v2->y)/3, (v0->z+v1->z+v2->z)/3};
     return c;
+}
+
+void fixor(Face* init) {
+    std::vector<HalfEdge*> e012 = {init->exteriorEdge, init->exteriorEdge->next, init->exteriorEdge->prev};
+    for (auto const& i : e012){
+        if (i->origin == i->twin->origin) {flip012_201(i->twin->incidentFace); fixor(i->twin->incidentFace);}
+    }
+    return;
+
 }
 /* 
   Example functions that you could implement. But you are 
@@ -238,7 +277,7 @@ void groupTriangles(DCEL & D) {
   // to do
 }
 // 3.
-void orientMeshes(DCEL & D ,std::vector<std::vector<double>>& vertice,std::unordered_map<std::pair<unsigned int,unsigned int>, HalfEdge *, boost::hash<std::pair<unsigned int, unsigned int>>> hashmap2) {
+void orientMeshes(DCEL & D ,std::vector<std::vector<double>>& vertice,std::unordered_map<std::pair<unsigned int,unsigned int>, HalfEdge *, boost::hash<std::pair<unsigned int, unsigned int>>>& hashmap2) {
     std::vector<double> o;
     std::vector<double> d;
   auto minc = cornerpoints(vertice,"min"); //origin of ray
@@ -257,36 +296,41 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<double>>& vertice,std::unord
   std::vector<double> fv1 {nearest->exteriorEdge->destination->x, nearest->exteriorEdge->destination->y,nearest->exteriorEdge->destination->z};
   std::vector<double> fv2 {nearest->exteriorEdge->prev->origin->x, nearest->exteriorEdge->prev->origin->y,nearest->exteriorEdge->prev->origin->z};
   std::vector<double> e;
-  e = Normal(fv0,fv1,fv2);
-  double angle = acos((e[0]*o[0] + e[1]*o[1] + e[2]*o[2]) / sqrt((e[0]*e[0]+e[1]*e[1]+e[2]*e[2]) * (o[0]*o[0]+o[1]*o[1]+o[2]*o[2])));
-  double dot = e[0]*o[0] + e[1]*o[1] + e[2]*o[2]; //The correct orientation is when dot is positive
-  std::cout<<dot<<" "<<angle <<std::endl;
-  //Check face normal orientation. Think about the vertical case of dot=0/ Think of many cases if it waorks every time.
-   if (dot<0){ // Flip the triangle
-       //TODO: Make the Flip into a function, delete hashmap from Orient fucntion
-      Vertex* t0 = nearest->exteriorEdge->destination;
-      Vertex* t2 = nearest->exteriorEdge->prev->origin;
-      Vertex* t1 = nearest->exteriorEdge->origin;
 
-      nearest->exteriorEdge->origin = t0;
-      nearest->exteriorEdge->destination = t1;
-      nearest->exteriorEdge->next->origin = t2;
-      nearest->exteriorEdge->next->destination =t0;
-      nearest->exteriorEdge->prev->origin = t1;
-      nearest->exteriorEdge->prev->destination = t2;
-      HalfEdge* e1 = nearest->exteriorEdge->next;
-      HalfEdge* e2 = nearest->exteriorEdge->prev;
-      HalfEdge* tw1 = nearest->exteriorEdge->next->twin;
-      HalfEdge* tw2 = nearest->exteriorEdge->prev->twin;
-      nearest->exteriorEdge->next = e2;
-      nearest->exteriorEdge->prev = e1;
-//TODO: chech the flipping for the incident face too. Incident face is the internal face ?
+   if (!checkNormal(fv0,fv1,fv2,o,d))
+       flip012_201(nearest);
+
+   std::pair<unsigned int, unsigned int> p;
+   p.first = nearest->exteriorEdge->origin->i;
+    p.first = nearest->exteriorEdge->destination->i;
+
+   //fixor(nearest);
 
 
+   std::stack<Face* > facestack;
+   facestack.push(nearest);
+   std::vector<Face* > traversed_faced;
+
+   while(!facestack.empty()){
+
+       auto validface = facestack.top();
+       traversed_faced.push_back(validface);
+       facestack.pop();
+
+       std::vector<HalfEdge*> e012 = {validface->exteriorEdge, validface->exteriorEdge->next, validface->exteriorEdge->prev};
 
 
+       for (auto const& edgex : e012){
+           if (std::find(traversed_faced.begin(),traversed_faced.end(), edgex->twin->incidentFace) != traversed_faced.end()){
+               continue;}
+           if (edgex->origin == edgex->twin->origin){
+               flip012_201(edgex->twin->incidentFace);}
+               facestack.push(edgex->twin->incidentFace);
+               traversed_faced.push_back(edgex->twin->incidentFace);
+       }
+   }
 
-  } else if (dot == 0) {std::cout<<"Dot is 0!!"; return;}
+
 }
 
 
@@ -301,8 +345,8 @@ void exportCityJSON(DCEL & D, const char *file_out) {
 
 
 int main(int argc, const char * argv[]) {
-    const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube_soup.obj";
-    const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube.json";
+    const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk_soup.obj";
+    const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk.json";
 
 
 
@@ -366,7 +410,7 @@ orientMeshes(D, vertices, hashmap2);
     fl.close();
     // 5. write the meshes with their faces to a valid CityJSON output file. ~~~~~~~~~~~~~~ 09-03-2021~~~~~~~~~~~~~//
 
-    DemoDCEL();
+    //DemoDCEL();
     return 0;
 }
 
