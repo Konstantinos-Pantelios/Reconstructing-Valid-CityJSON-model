@@ -50,7 +50,7 @@ std::vector<double> cornerpoints(std::vector<std::vector<double>> v, const std::
             if (i[1] >= maxy) maxy = i[1];
             if (i[2] >= maxz) maxz = i[2];
         }
-        return {maxx+1,maxy+1,maxz+1}; //+1 to go out of bounds
+        return {maxx,maxy,maxz}; //+1 to go out of bounds
     }
     else if (minmax == "min") {
         float minx = 2000.0;
@@ -61,7 +61,7 @@ std::vector<double> cornerpoints(std::vector<std::vector<double>> v, const std::
             if (i[1] <= miny) miny = i[1];
             if (i[2] <= minz) minz = i[2];
         }
-        return {minx-1,miny-1,minz-1}; //-1 to go out of bounds
+        return {minx,miny,minz}; //-1 to go out of bounds
     }
 }
 
@@ -144,6 +144,13 @@ std::vector<double> Normal(std::vector<double> v0,std::vector<double> v1, std::v
     return(Nor);
 }
 
+std::vector<double> Centroid(HalfEdge *f){
+    auto v0 = f->origin;
+    auto v1 = f->destination;
+    auto v2 = f->prev->origin;
+    std::vector<double> c = {(v0->x+v1->x+v2->x)/3, (v0->y+v1->y+v2->y)/3, (v0->z+v1->z+v2->z)/3};
+    return c;
+}
 /* 
   Example functions that you could implement. But you are 
   free to organise/modify the code however you want.
@@ -231,11 +238,13 @@ void groupTriangles(DCEL & D) {
   // to do
 }
 // 3.
-void orientMeshes(DCEL & D, std::vector<double> o, std::vector<double> d ,std::vector<std::vector<double>>& vertice) {
-    //TODO: Make the ray originate from the middle of the bounding box but with offset in X axis getting it out of bbox
-    //TODO: Set ray's destination to fall upon a triangle to ensure that the ray will hit at least one triagle: Do this by setting it as the centroid of a random triangle
-  o = cornerpoints(vertice,"min"); //origin of ray
-  d = cornerpoints(vertice,"max"); //destination of ray
+void orientMeshes(DCEL & D ,std::vector<std::vector<double>>& vertice) {
+    std::vector<double> o;
+    std::vector<double> d;
+  auto minc = cornerpoints(vertice,"min"); //origin of ray
+  auto maxc = cornerpoints(vertice,"max");
+  o = {minc[0]-1,((maxc[1]-minc[1])/2)+minc[1],((maxc[2]-minc[2])/1.5)+minc[2]};
+  d = Centroid(D.faces().back().get()->exteriorEdge);///destination of ray
   std::vector<Face *> ray_face;
   for(auto const& i : D.faces()){
       if (intersects(o,d,i.get())){
@@ -251,9 +260,9 @@ void orientMeshes(DCEL & D, std::vector<double> o, std::vector<double> d ,std::v
 
   e = Normal(fv0,fv2,fv1);
 
-  //double angle = acos((e[0]*o[0] + e[1]*o[1] + e[2]*o[2]) / sqrt((e[0]*e[0]+e[1]*e[1]+e[2]*e[2]) * (o[0]*o[0]+o[1]*o[1]+o[2]*o[2])));
+  double angle = acos((e[0]*o[0] + e[1]*o[1] + e[2]*o[2]) / sqrt((e[0]*e[0]+e[1]*e[1]+e[2]*e[2]) * (o[0]*o[0]+o[1]*o[1]+o[2]*o[2])));
   double dot = e[0]*o[0] + e[1]*o[1] + e[2]*o[2]; //The correct orientation is when dot is positive
-  std::cout<<dot<<std::endl;
+  std::cout<<dot<<" "<<angle <<std::endl;
 }
 // 4.
 void mergeCoPlanarFaces(DCEL & D) {
@@ -291,9 +300,8 @@ int main(int argc, const char * argv[]) {
     // 3. determine the correct orientation for each mesh and ensure all its triangles
     //    are consistent with this correct orientation (ie. all the triangle normals
     //    are pointing outwards).
-    std::vector<double> ray_origin;
-    std::vector<double> ray_destination;
-orientMeshes(D,ray_origin,ray_destination, vertices);
+
+orientMeshes(D, vertices);
     // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
 
 
