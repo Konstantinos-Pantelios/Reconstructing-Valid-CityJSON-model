@@ -4,7 +4,7 @@
 #include <string>
 #include <list>
 #include <vector>
-#include<map>
+#include <map>
 #include <unordered_map>
 #include "DCEL.hpp"
 #include <cmath>
@@ -256,25 +256,25 @@ void groupTriangles(DCEL & D) {
 }
 // 3.
 void orientMeshes(DCEL & D ,std::vector<std::vector<double>>& vertice) {
-    std::vector<double> o;
-    std::vector<double> d;
-  auto minc = cornerpoints(vertice,"min"); //origin of ray
+    std::vector<double> o; //origin of ray
+    std::vector<double> d; //destination of ray
+  auto minc = cornerpoints(vertice,"min");
   auto maxc = cornerpoints(vertice,"max");
   o = {minc[0]-1,((maxc[1]-minc[1])/2)+minc[1],((maxc[2]-minc[2])/1.5)+minc[2]};
-  d = Centroid(D.faces().back().get()->exteriorEdge);///destination of ray
-  std::vector<Face *> ray_face;
+  d = Centroid(D.faces().back().get()->exteriorEdge);///destination of ray -> the last face of the list
+  std::vector<Face *> ray_face; //triangles that the ray intersects
   for(auto const& i : D.faces()){
       if (intersects(o,d,i.get())){
           ray_face.push_back(i.get());
       }
   }
-  Face* nearest = min_distance(o, ray_face);
+  Face* nearest = min_distance(o, ray_face); //Closest intersecting triangle to ray.
 
   std::vector<double> fv0 {nearest->exteriorEdge->origin->x, nearest->exteriorEdge->origin->y,nearest->exteriorEdge->origin->z};
   std::vector<double> fv1 {nearest->exteriorEdge->destination->x, nearest->exteriorEdge->destination->y,nearest->exteriorEdge->destination->z};
   std::vector<double> fv2 {nearest->exteriorEdge->prev->origin->x, nearest->exteriorEdge->prev->origin->y,nearest->exteriorEdge->prev->origin->z};
 
-//Check and fix if necessary the orientation of the initial face.
+//Check and fix, if necessary, the orientation of the initial face.
 //This face is the closest intersecting face of the ray with origin near the middle of bbox for y,z but outside bounds for x and
 //destination a random triangle's centroid (to ensure at least one intersecttion is happening).
    if (!checkNormal(fv0,fv1,fv2,o,d))
@@ -282,7 +282,7 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<double>>& vertice) {
 
 
 // Fix the orientation of all the faces of the mesh.  ###########################################################
-// Start with "nearest" triangle which has the correct orientations and set the rest based on this. #############
+// Start with "nearest" triangle which has the correct orientation and set the rest based on it. #############
    std::stack<Face* > facestack;
    std::vector<Face* > traversed_faced;
    facestack.push(nearest);
