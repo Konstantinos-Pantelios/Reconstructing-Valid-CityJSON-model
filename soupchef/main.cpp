@@ -157,7 +157,7 @@ std::vector<double> Centroid(HalfEdge *f){
   After each function you should have a DCEL without invalid elements!
 */
 // 1.
-void importOBJ(DCEL & D, const char *file_in,std::vector<std::vector<double>>& vertices,std::vector<std::vector<unsigned int>>& faces) {
+void importOBJ(DCEL & D, const char *file_in,std::vector<std::vector<double>>& vertices,std::vector<std::vector<unsigned int>>& faces,std::unordered_map<std::pair<unsigned int,unsigned int>, HalfEdge *, boost::hash<std::pair<unsigned int, unsigned int>>>& hashmap2) {
 
     std::unordered_map<unsigned int, Vertex *> hashmap;
     read(file_in, vertices, faces);
@@ -167,8 +167,8 @@ void importOBJ(DCEL & D, const char *file_in,std::vector<std::vector<double>>& v
         Vertex *v = D.createVertex(i[0], i[1], i[2], c);
         hashmap[c] = v;
     }
-    std::cout<<hashmap[8] <<std::endl;
-    std::unordered_map<std::pair<unsigned int,unsigned int>, HalfEdge *, boost::hash<std::pair<unsigned int, unsigned int>>> hashmap2;
+
+
 
     for (auto const &j: faces) {
         Face *f = D.createFace();
@@ -238,7 +238,7 @@ void groupTriangles(DCEL & D) {
   // to do
 }
 // 3.
-void orientMeshes(DCEL & D ,std::vector<std::vector<double>>& vertice) {
+void orientMeshes(DCEL & D ,std::vector<std::vector<double>>& vertice,std::unordered_map<std::pair<unsigned int,unsigned int>, HalfEdge *, boost::hash<std::pair<unsigned int, unsigned int>>> hashmap2) {
     std::vector<double> o;
     std::vector<double> d;
   auto minc = cornerpoints(vertice,"min"); //origin of ray
@@ -257,13 +257,39 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<double>>& vertice) {
   std::vector<double> fv1 {nearest->exteriorEdge->destination->x, nearest->exteriorEdge->destination->y,nearest->exteriorEdge->destination->z};
   std::vector<double> fv2 {nearest->exteriorEdge->prev->origin->x, nearest->exteriorEdge->prev->origin->y,nearest->exteriorEdge->prev->origin->z};
   std::vector<double> e;
-
-  e = Normal(fv0,fv2,fv1);
-
+  e = Normal(fv0,fv1,fv2);
   double angle = acos((e[0]*o[0] + e[1]*o[1] + e[2]*o[2]) / sqrt((e[0]*e[0]+e[1]*e[1]+e[2]*e[2]) * (o[0]*o[0]+o[1]*o[1]+o[2]*o[2])));
   double dot = e[0]*o[0] + e[1]*o[1] + e[2]*o[2]; //The correct orientation is when dot is positive
   std::cout<<dot<<" "<<angle <<std::endl;
+  //Check face normal orientation. Think about the vertical case of dot=0/ Think of many cases if it waorks every time.
+   if (dot<0){ // Flip the triangle
+       //TODO: Make the Flip into a function, delete hashmap from Orient fucntion
+      Vertex* t0 = nearest->exteriorEdge->destination;
+      Vertex* t2 = nearest->exteriorEdge->prev->origin;
+      Vertex* t1 = nearest->exteriorEdge->origin;
+
+      nearest->exteriorEdge->origin = t0;
+      nearest->exteriorEdge->destination = t1;
+      nearest->exteriorEdge->next->origin = t2;
+      nearest->exteriorEdge->next->destination =t0;
+      nearest->exteriorEdge->prev->origin = t1;
+      nearest->exteriorEdge->prev->destination = t2;
+      HalfEdge* e1 = nearest->exteriorEdge->next;
+      HalfEdge* e2 = nearest->exteriorEdge->prev;
+      HalfEdge* tw1 = nearest->exteriorEdge->next->twin;
+      HalfEdge* tw2 = nearest->exteriorEdge->prev->twin;
+      nearest->exteriorEdge->next = e2;
+      nearest->exteriorEdge->prev = e1;
+//TODO: chech the flipping for the incident face too. Incident face is the internal face ?
+
+
+
+
+
+  } else if (dot == 0) {std::cout<<"Dot is 0!!"; return;}
 }
+
+
 // 4.
 void mergeCoPlanarFaces(DCEL & D) {
   // to do
@@ -290,7 +316,8 @@ int main(int argc, const char * argv[]) {
     // 1. read the triangle soup from the OBJ input file and convert it to the DCEL,
     std::vector<std::vector<double>> vertices;
     std::vector<std::vector<unsigned int>> faces;
-    importOBJ(D, file_in, vertices, faces);
+    std::unordered_map<std::pair<unsigned int,unsigned int>, HalfEdge *, boost::hash<std::pair<unsigned int, unsigned int>>> hashmap2;
+    importOBJ(D, file_in, vertices, faces, hashmap2);
     printDCEL(D);
 
     D.vertices();
@@ -301,7 +328,7 @@ int main(int argc, const char * argv[]) {
     //    are consistent with this correct orientation (ie. all the triangle normals
     //    are pointing outwards).
 
-orientMeshes(D, vertices);
+orientMeshes(D, vertices, hashmap2);
     // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
 
 
