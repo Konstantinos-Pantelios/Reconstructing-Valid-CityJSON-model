@@ -19,7 +19,7 @@
 // forward declarations; these functions are given below main()
 void DemoDCEL();
 void printDCEL(DCEL & D);
-bool rayTriangleIntersect(const std::vector<double> orig, std::vector<double> dir, const Face* f)
+/*bool rayTriangleIntersect(const std::vector<double> orig, std::vector<double> dir, const Face* f)
 {
     auto v0= f->exteriorEdge->origin;
     auto v1= f->exteriorEdge->destination;
@@ -67,6 +67,7 @@ bool rayTriangleIntersect(const std::vector<double> orig, std::vector<double> di
 
     return true;
 }
+*/ // Other intersection method. Not used.
 //~~~~~~~~~~~~~~~~~~~~~ 09-03-2021 Read .obj file into memory - vertices and faces ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 void read(const char *file_in, std::vector<std::vector<double>> &v, std::vector<std::vector<unsigned int>> &f) {
     std::ifstream stream_in;
@@ -199,7 +200,25 @@ bool checkNormal(std::vector<double> v0,std::vector<double> v1, std::vector<doub
     else if (dot>0) return false;
     else std::cout << "dot is 0";  //Think about the vertical case of dot=0/ Think of many cases if it waorks every time.
 }
-
+std::vector<double> Normal(const Face* f){
+    std::vector<double>  v0 = {f->exteriorEdge->origin->x ,f->exteriorEdge->origin->y,f->exteriorEdge->origin->z};
+    std::vector<double>  v1 = {f->exteriorEdge->destination->x ,f->exteriorEdge->destination->y,f->exteriorEdge->destination->z};
+    std::vector<double>  v2 = {f->exteriorEdge->prev->origin->x ,f->exteriorEdge->prev->origin->y,f->exteriorEdge->prev->origin->z};
+    std::vector<double> U = {v1[0]-v0[0], v1[1] - v0[1], v1[2] - v0[2]};
+    std::vector<double> V = {v2[0]-v0[0], v2[1] - v0[1], v2[2] - v0[2]};
+    std::vector<double> N = {U[1]*V[2] - U[2]*V[1],
+                             U[2]*V[0] - U[0]*V[2],
+                             U[0]*V[1] - U[1]*V[0]};
+    double mag = sqrt(N[0]*N[0]+N[1]*N[1]+N[2]*N[2]);
+    const std::vector<double> Nor = {N[0]/mag, N[1]/mag, N[2]/mag};
+    return Nor;
+}
+double angle(std::vector<double> n1, std::vector<double> n2) {
+    double angle = acos((n1[0] * n2[0] + n1[1] * n2[1] + n1[2] * n2[2]) /
+                        sqrt((n1[0] * n1[0] + n1[1] * n1[1] + n1[2] * n1[2]) *
+                             (n2[0] * n2[0] + n2[1] * n2[1] + n2[2] * n2[2])));
+    return angle = angle*180/M_PI;
+}
 void flip012_201(Face* triangle){
     Vertex* t0 = triangle->exteriorEdge->destination;
     Vertex* t2 = triangle->exteriorEdge->prev->origin;
@@ -369,7 +388,7 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<std::vector<double>>>& verti
     for (auto const &mesh : D.infiniteFace()->holes) {
         std::vector<double> o; //origin of ray
         std::vector<double> d; //destination of ray
-        auto mesh_faces = getFaces(mesh);
+        auto mesh_faces = getFaces(mesh); //mesh_faces contain only those faces that difine the specific mesh.
 
         auto minc = cornerpoints(vertice[mesh_count], "min");
         auto maxc = cornerpoints(vertice[mesh_count], "max");
@@ -380,9 +399,9 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<std::vector<double>>>& verti
 
 
         std::vector<Face *> ray_face; //triangles that the ray intersects
-        for (auto const & i : D.faces()) {
-            if (intersects(o, d, i.get())) {
-                ray_face.push_back(i.get());
+        for (auto const & i : mesh_faces) {
+            if (intersects(o, d, i)) {
+                ray_face.push_back(i);
             }
         }
         Face *nearest = min_distance(o, ray_face); //Closest intersecting triangle to ray.
@@ -425,14 +444,40 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<std::vector<double>>>& verti
                 traversed_faced.push_back(edgex->twin->incidentFace);
             }
         }
-//###############################################################################################################3
+//###############################################################################################################
     mesh_count++;
     }
 }
 
 // 4.
 void mergeCoPlanarFaces(DCEL & D) {
-  // to do
+
+    std::vector<Face* > traversed_faced;
+    for (auto const& f : D.faces()){
+        traversed_faced.push_back(f.get());
+        std::vector<double> curr_norm = Normal(f.get());
+        std::vector<HalfEdge*> ne012 = {f->exteriorEdge->twin, f->exteriorEdge->next->twin, f->exteriorEdge->prev->twin};
+        for (auto const& neigh : ne012) {
+            if (std::find(traversed_faced.begin(), traversed_faced.end(), neigh->incidentFace) !=
+                traversed_faced.end()) { continue; }
+            std::vector<double> neigh_norm = Normal(neigh->incidentFace);
+            if (angle(curr_norm,neigh_norm) == 0) {
+                neigh->twin = neigh->next;
+                neigh->twin->next = neigh->prev;
+                neigh->incidentFace->eliminate();
+            }
+        }
+    }
+    D.cleanup();
+    for (auto const& f: D.faces()) {
+        HalfEdge *e = f->exteriorEdge;
+        const HalfEdge *e_start = e;
+        do {
+            std::cout << " -> " << *e->origin << "\n";
+            e = e->next;
+        } while (e_start != e);
+        std::cout <<"\n";
+    }
 }
 // 5.
 void exportCityJSON(DCEL & D, const char *file_out) {
@@ -441,8 +486,8 @@ void exportCityJSON(DCEL & D, const char *file_out) {
 
 
 int main(int argc, const char * argv[]) {
-    const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk_soup.obj";
-    const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk.json";
+    const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube_soup.obj";
+    const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube.json";
 
 
 
@@ -468,7 +513,7 @@ int main(int argc, const char * argv[]) {
 
     orientMeshes(D, mesh_vertices);
     // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
-
+    mergeCoPlanarFaces(D);
 
     // 5. write the meshes with their faces to a valid CityJSON output file. ~~~~~~~~~~~~~~ 09-03-2021~~~~~~~~~~~~~//
     std::fstream fl;
