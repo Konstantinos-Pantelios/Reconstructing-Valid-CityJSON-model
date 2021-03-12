@@ -181,6 +181,30 @@ std::vector<double> Centroid(HalfEdge *f){
     return c;
 }
 
+std::vector<Face* > getFaces(HalfEdge* edge){
+    std::vector<Face* > toreturn;
+    std::stack<Face* > facestack;
+    std::vector<Face* > traversed_faced;
+    facestack.push(edge->incidentFace);
+    while (!facestack.empty()) {
+        auto validface = facestack.top();
+        traversed_faced.push_back(validface);
+        facestack.pop();
+        std::vector<HalfEdge *> e012 = {validface->exteriorEdge, validface->exteriorEdge->next,
+                                        validface->exteriorEdge->prev};
+
+        for (auto const &edgex : e012) {
+            if (std::find(traversed_faced.begin(), traversed_faced.end(), edgex->twin->incidentFace) !=
+                traversed_faced.end()) {
+                continue;
+            }
+            facestack.push(edgex->twin->incidentFace);
+            traversed_faced.push_back(edgex->twin->incidentFace);
+        }
+        toreturn.push_back(validface);
+    }
+    return toreturn;
+}
 // 1.
 void importOBJ(DCEL & D, const char *file_in,std::vector<std::vector<double>>& vertices,std::vector<std::vector<unsigned int>>& faces,std::unordered_map<std::pair<unsigned int,unsigned int>, HalfEdge *, boost::hash<std::pair<unsigned int, unsigned int>>>& hashmap2) {
 
@@ -247,64 +271,115 @@ void importOBJ(DCEL & D, const char *file_in,std::vector<std::vector<double>>& v
             hashmap2[p2]->twin = e2;
         }
         f->exteriorEdge = e0;
-        D.infiniteFace()->holes.push_back(e0);
     }
 }
 // 2.
-void groupTriangles(DCEL & D) {
-  // to do
+std::vector<std::vector<std::vector<double>>> groupTriangles(DCEL & D) {
+    std::vector<Vertex*> verts;
+    std::vector<std::vector<double>> v_toreturn;
+    std::stack<Face* > facestack;
+    std::vector<Face* > traversed_faced;
+    std::vector<std::vector<std::vector<double>>> mesh_vertices;
+
+    for (auto const& face : D.faces()) {
+        if (std::find(traversed_faced.begin(),traversed_faced.end(), face.get()) != traversed_faced.end())
+        {continue;}
+        facestack.push(face.get());
+        verts={};
+        v_toreturn={};
+
+        while (!facestack.empty()) {
+            auto validface = facestack.top();
+            traversed_faced.push_back(validface);
+            facestack.pop();
+            std::vector<HalfEdge *> e012 = {validface->exteriorEdge, validface->exteriorEdge->next,
+                                            validface->exteriorEdge->prev};
+
+            for (auto const &edgex : e012) {
+                if (std::find(traversed_faced.begin(), traversed_faced.end(), edgex->twin->incidentFace) !=
+                    traversed_faced.end()) {
+                    continue;
+                }
+                facestack.push(edgex->twin->incidentFace);
+                traversed_faced.push_back(edgex->twin->incidentFace);
+
+            }
+            std::vector<Vertex *> v012 = {validface->exteriorEdge->origin, validface->exteriorEdge->destination,validface->exteriorEdge->prev->origin};
+            for (auto const& vertices : v012)
+            if (std::find(verts.begin(),verts.end(), vertices) != verts.end())
+            {continue;}
+            else {verts.push_back(vertices); v_toreturn.push_back({vertices->x,vertices->y,vertices->z});}
+        }
+
+        mesh_vertices.push_back(v_toreturn);
+        D.infiniteFace()->holes.push_back(face->exteriorEdge);
+    }
+    return mesh_vertices;
 }
 // 3.
-void orientMeshes(DCEL & D ,std::vector<std::vector<double>>& vertice) {
-    std::vector<double> o; //origin of ray
-    std::vector<double> d; //destination of ray
-  auto minc = cornerpoints(vertice,"min");
-  auto maxc = cornerpoints(vertice,"max");
-  o = {minc[0]-1,((maxc[1]-minc[1])/2)+minc[1],((maxc[2]-minc[2])/1.5)+minc[2]};
-  d = Centroid(D.faces().back().get()->exteriorEdge);///destination of ray -> the last face of the list
-  std::vector<Face *> ray_face; //triangles that the ray intersects
-  for(auto const& i : D.faces()){
-      if (intersects(o,d,i.get())){
-          ray_face.push_back(i.get());
-      }
-  }
-  Face* nearest = min_distance(o, ray_face); //Closest intersecting triangle to ray.
+void orientMeshes(DCEL & D ,std::vector<std::vector<std::vector<double>>>& vertice) {
+    unsigned int mesh_count=0;
+    for (auto const &mesh : D.infiniteFace()->holes) {
+        std::vector<double> o; //origin of ray
+        std::vector<double> d; //destination of ray
+        auto mesh_faces = getFaces(mesh);
 
-  std::vector<double> fv0 {nearest->exteriorEdge->origin->x, nearest->exteriorEdge->origin->y,nearest->exteriorEdge->origin->z};
-  std::vector<double> fv1 {nearest->exteriorEdge->destination->x, nearest->exteriorEdge->destination->y,nearest->exteriorEdge->destination->z};
-  std::vector<double> fv2 {nearest->exteriorEdge->prev->origin->x, nearest->exteriorEdge->prev->origin->y,nearest->exteriorEdge->prev->origin->z};
+        auto minc = cornerpoints(vertice[mesh_count], "min");
+        auto maxc = cornerpoints(vertice[mesh_count], "max");
+        o = {minc[0] - 100, ((maxc[1] - minc[1]) / 2) + minc[1], ((maxc[2] - minc[2]) / 1.5) + minc[2]};
+        d = Centroid(mesh_faces.at(mesh_faces.size()/2)->exteriorEdge);///destination of ray -> the last face of the list
+
+
+        std::vector<Face *> ray_face; //triangles that the ray intersects
+        for (auto const & i : mesh_faces) {
+            if (intersects(o, d, i)) {
+                ray_face.push_back(i);
+            }
+        }
+        Face *nearest = min_distance(o, ray_face); //Closest intersecting triangle to ray.
+
+        std::vector<double> fv0{nearest->exteriorEdge->origin->x, nearest->exteriorEdge->origin->y,
+                                nearest->exteriorEdge->origin->z};
+        std::vector<double> fv1{nearest->exteriorEdge->destination->x, nearest->exteriorEdge->destination->y,
+                                nearest->exteriorEdge->destination->z};
+        std::vector<double> fv2{nearest->exteriorEdge->prev->origin->x, nearest->exteriorEdge->prev->origin->y,
+                                nearest->exteriorEdge->prev->origin->z};
 
 //Check and fix, if necessary, the orientation of the initial face.
 //This face is the closest intersecting face of the ray with origin near the middle of bbox for y,z but outside bounds for x and
 //destination a random triangle's centroid (to ensure at least one intersecttion is happening).
-   if (!checkNormal(fv0,fv1,fv2,o,d))
-       flip012_201(nearest);
+        if (!checkNormal(fv0, fv1, fv2, o, d))
+            flip012_201(nearest);
 
 
 // Fix the orientation of all the faces of the mesh.  ###########################################################
 // Start with "nearest" triangle which has the correct orientation and set the rest based on it. #############
-   std::stack<Face* > facestack;
-   std::vector<Face* > traversed_faced;
-   facestack.push(nearest);
-   while(!facestack.empty()){
-       auto validface = facestack.top();
-       traversed_faced.push_back(validface);
-       facestack.pop();
-       std::vector<HalfEdge*> e012 = {validface->exteriorEdge, validface->exteriorEdge->next, validface->exteriorEdge->prev};
+        std::stack<Face *> facestack;
+        std::vector<Face *> traversed_faced;
+        facestack.push(nearest);
+        while (!facestack.empty()) {
+            auto validface = facestack.top();
+            traversed_faced.push_back(validface);
+            facestack.pop();
+            std::vector<HalfEdge *> e012 = {validface->exteriorEdge, validface->exteriorEdge->next,
+                                            validface->exteriorEdge->prev};
 
-       for (auto const& edgex : e012){
-           if (std::find(traversed_faced.begin(),traversed_faced.end(), edgex->twin->incidentFace) != traversed_faced.end()){
-               continue;}
-           if (edgex->origin == edgex->twin->origin){
-               flip012_201(edgex->twin->incidentFace);}
-               facestack.push(edgex->twin->incidentFace);
-               traversed_faced.push_back(edgex->twin->incidentFace);
-       }
-   }
+            for (auto const &edgex : e012) {
+                if (std::find(traversed_faced.begin(), traversed_faced.end(), edgex->twin->incidentFace) !=
+                    traversed_faced.end()) {
+                    continue;
+                }
+                if (edgex->origin == edgex->twin->origin) {
+                    flip012_201(edgex->twin->incidentFace);
+                }
+                facestack.push(edgex->twin->incidentFace);
+                traversed_faced.push_back(edgex->twin->incidentFace);
+            }
+        }
 //###############################################################################################################3
-
+    mesh_count++;
+    }
 }
-
 
 // 4.
 void mergeCoPlanarFaces(DCEL & D) {
@@ -337,12 +412,12 @@ int main(int argc, const char * argv[]) {
     printDCEL(D);
 
     // 2. group the triangles into meshes,
-
+    auto mesh_vertices = groupTriangles(D);
     // 3. determine the correct orientation for each mesh and ensure all its triangles
     //    are consistent with this correct orientation (ie. all the triangle normals
     //    are pointing outwards).
 
-    orientMeshes(D, vertices);
+    orientMeshes(D, mesh_vertices);
     // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
 
 
