@@ -19,7 +19,54 @@
 // forward declarations; these functions are given below main()
 void DemoDCEL();
 void printDCEL(DCEL & D);
+bool rayTriangleIntersect(const std::vector<double> orig, std::vector<double> dir, const Face* f)
+{
+    auto v0= f->exteriorEdge->origin;
+    auto v1= f->exteriorEdge->destination;
+    auto v2= f->exteriorEdge->prev->origin;
+    std::vector<double> v0v1 = {v1->x - v0->x, v1->y-v0->y, v1->z-v0->z};
+    std::vector<double> v0v2 = {v2->x - v0->x, v2->y-v0->y, v2->z-v0->z};
 
+
+    std::vector<double> pvec = {dir[1] * v0v2[2] - dir[2]*v0v2[1], -(dir[0]*v0v2[2]-dir[2]*v0v2[0]), dir[0]*v0v2[1-dir[1]*v0v2[0]]};
+            //dir.cross(v0v2);
+    float det = v0v1[0]*pvec[0] + v0v1[1]*pvec[1] + v0v1[2]*pvec[2];
+            //v0v1.dot(pvec);
+
+    if (det < 0.000001)
+        return false;
+
+    float invDet = 1.0 / det;
+
+    std::vector<double> tvec = {orig[0] - v0->x, orig[1]-v0->y, orig[2]-v0->z};
+
+    float tvec_dot_pvec = tvec[0]*pvec[0] + tvec[1]*pvec[1] + tvec[2] * pvec[2];
+    float u = tvec_dot_pvec * invDet;
+
+    if (u < 0 || u > 1)
+        return false;
+
+    std::vector<double> qvec =  {tvec[1] * v0v1[2] - tvec[2]*v0v1[1], -(tvec[0]*v0v1[2]-tvec[2]*v0v1[0]), tvec[0]*v0v1[1-tvec[1]*v0v1[0]]};
+            //tvec.cross(v0v1);
+
+    float dir_dot_qvec = dir[0]*qvec[0] + dir[1]*qvec[1] + dir[2] * qvec[2];
+    float v = dir_dot_qvec * invDet;
+
+    if (v < 0 || u + v > 1)
+        return false;
+
+    float v0v2_dot_qvec = v0v2[0]*qvec[0] + v0v2[1]*qvec[1] + v0v2[2] * qvec[2];
+    float t = v0v2_dot_qvec * invDet;
+
+    if (t > 0.000001) // ray intersection
+    {
+        return true;
+    }
+    else // This means that there is a line intersection but not a ray intersection.
+        return true;
+
+    return true;
+}
 //~~~~~~~~~~~~~~~~~~~~~ 09-03-2021 Read .obj file into memory - vertices and faces ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 void read(const char *file_in, std::vector<std::vector<double>> &v, std::vector<std::vector<unsigned int>> &f) {
     std::ifstream stream_in;
@@ -326,14 +373,16 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<std::vector<double>>>& verti
 
         auto minc = cornerpoints(vertice[mesh_count], "min");
         auto maxc = cornerpoints(vertice[mesh_count], "max");
-        o = {minc[0] - 100, ((maxc[1] - minc[1]) / 2) + minc[1], ((maxc[2] - minc[2]) / 1.5) + minc[2]};
-        d = Centroid(mesh_faces.at(mesh_faces.size()/2)->exteriorEdge);///destination of ray -> the last face of the list
+        o = {minc[0] - 5, ((maxc[1] - minc[1]) / 2) + minc[1], ((maxc[2] - minc[2]) / 1.5) + minc[2]};
+        d = {mesh_faces.back()->exteriorEdge->origin->x,
+             mesh_faces.back()->exteriorEdge->origin->y,
+             mesh_faces.back()->exteriorEdge->origin->z}; //destination of ray -> a vertex of the last face of the mesh.
 
 
         std::vector<Face *> ray_face; //triangles that the ray intersects
-        for (auto const & i : mesh_faces) {
-            if (intersects(o, d, i)) {
-                ray_face.push_back(i);
+        for (auto const & i : D.faces()) {
+            if (intersects(o, d, i.get())) {
+                ray_face.push_back(i.get());
             }
         }
         Face *nearest = min_distance(o, ray_face); //Closest intersecting triangle to ray.
