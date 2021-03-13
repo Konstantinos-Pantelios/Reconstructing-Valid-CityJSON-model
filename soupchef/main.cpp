@@ -454,17 +454,25 @@ void mergeCoPlanarFaces(DCEL & D) {
 
     std::vector<Face* > traversed_faced;
     for (auto const& f : D.faces()){
+        if (f.get()->isEliminated()){continue;}
         traversed_faced.push_back(f.get());
         std::vector<double> curr_norm = Normal(f.get());
         std::vector<HalfEdge*> ne012 = {f->exteriorEdge->twin, f->exteriorEdge->next->twin, f->exteriorEdge->prev->twin};
         for (auto const& neigh : ne012) {
             if (std::find(traversed_faced.begin(), traversed_faced.end(), neigh->incidentFace) !=
                 traversed_faced.end()) { continue; }
+            if (neigh->isEliminated()){continue;}
             std::vector<double> neigh_norm = Normal(neigh->incidentFace);
             if (angle(curr_norm,neigh_norm) == 0) {
-                neigh->twin = neigh->next;
-                neigh->twin->next = neigh->prev;
+                neigh->eliminate(); // Eliminate the neighboring edge
+                neigh->twin->eliminate(); //Eliminate the twin of the neigboring edge. aka the edge of current f.
                 neigh->incidentFace->eliminate();
+                neigh->next->incidentFace = f.get(); // Set the incident face of the next edge of the coplanar neighbor as the current face
+                neigh->prev->incidentFace = f.get();// Set the incident face of the previous edge of the coplanar neighbor as the current face
+
+                neigh->prev->next = neigh->twin->next;
+                neigh->next->prev = neigh->twin->prev;
+                int a=0;
             }
         }
     }
