@@ -460,12 +460,14 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<std::vector<double>>>& verti
 
 // 4.
 void mergeCoPlanarFaces(DCEL & D) {
+    for (auto const &mesh : D.infiniteFace()->holes) {
+        auto mesh_faces = getFaces(mesh);
 
     std::vector<Face* > traversed_faced;
-    for (auto const& f : D.faces()){
-        if (f.get()->isEliminated()){continue;}
-        traversed_faced.push_back(f.get());
-        std::vector<double> curr_norm = Normal(f.get());
+    for (auto const& f : mesh_faces){
+        if (f->isEliminated()){continue;}
+        traversed_faced.push_back(f);
+        std::vector<double> curr_norm = Normal(f);
         std::vector<HalfEdge*> ne012 = {f->exteriorEdge->twin, f->exteriorEdge->next->twin, f->exteriorEdge->prev->twin};
         for (auto const& neigh : ne012) {
             if (std::find(traversed_faced.begin(), traversed_faced.end(), neigh->incidentFace) !=
@@ -478,9 +480,16 @@ void mergeCoPlanarFaces(DCEL & D) {
                 neigh->incidentFace->eliminate();
                 traversed_faced.push_back(neigh->incidentFace);
 
-                neigh->next->incidentFace = neigh->twin->incidentFace; // Set the incident face of the next edge of the coplanar neighbor as the current face
-                neigh->prev->incidentFace = neigh->twin->incidentFace;// Set the incident face of the previous edge of the coplanar neighbor as the current face
+                HalfEdge *e = neigh->incidentFace->exteriorEdge;
+                const HalfEdge *e_start = e;
+                do {
+                    e->incidentFace = neigh->twin->incidentFace;
+                    e = e->next;
+                } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
 
+               // neigh->next->incidentFace = neigh->twin->incidentFace; // Set the incident face of the next edge of the coplanar neighbor as the current face
+               // neigh->prev->incidentFace = neigh->twin->incidentFace;// Set the incident face of the previous edge of the coplanar neighbor as the current face
+                if (f->hasDanglingLink()){f->exteriorEdge = f->exteriorEdge->prev;}
 
                 neigh->twin->next->prev = neigh->prev;
                 neigh->twin->prev->next = neigh->next;
@@ -488,39 +497,44 @@ void mergeCoPlanarFaces(DCEL & D) {
                 neigh->prev->next = neigh->twin->next;
                 neigh->next->prev = neigh->twin->prev;
 
-
-
-                //neigh->incidentFace = f.get();
-                neigh->next =neigh->twin;
-                neigh->prev =neigh->twin;
-                neigh->twin->next =neigh;
-                neigh->twin->prev =neigh;
                 int a=0;
             }
         }
+        if (f->hasDanglingLink()){ //
+            f->exteriorEdge = f->exteriorEdge->next;
+            std::cout<<"stop\n";
+        }
     }
-    printDCEL(D);
+ //   printDCEL(D);
 
-    D.cleanup();
+    for (auto const& edge : D.halfEdges()){
+    if (edge->hasDanglingLink()){
+        if (edge->twin->isEliminated()){edge.get()->twin = edge->next;}
+        if (edge->next->isEliminated()){edge.get()->next = edge->prev;}
+        if (edge->prev->isEliminated()){edge.get()->prev = edge->twin;}
+    }
+    if (edge->incidentFace->isEliminated()){
+        edge.get()->incidentFace = edge->next->incidentFace;
+    }
+}
+        for (auto const& face : D.faces()) {
+            if (face->hasDanglingLink()) {
+                if (face->exteriorEdge->isEliminated()){face->exteriorEdge=face->exteriorEdge->next;}
+                else if (face->exteriorEdge->next->isEliminated()){face->exteriorEdge->next = face->exteriorEdge->prev;}
+                else if (face->exteriorEdge->prev->isEliminated()){face->exteriorEdge->prev = face->exteriorEdge;}
+            }
+        }
     printDCEL(D);
+    int o=0;
+    //D.cleanup();
+        printDCEL(D);
     std::map<Face*, std::vector<HalfEdge*>> FtoE;
     for (auto const& face : D.faces()){FtoE[face.get()];}
     for (auto const& edge : D.halfEdges()){
         FtoE[edge->incidentFace].push_back(edge.get());
     }
 
-
-
-    for (auto const& f: D.faces()) {
-        HalfEdge *e = f->exteriorEdge;
-        const HalfEdge *e_start = e;
-        do {
-            std::cout << " -> " << *e->origin << "\n";
-            e = e->next;
-        } while (e_start != e);
-        std::cout <<"\n";
-    }
-}
+}}
 // 5.
 void exportCityJSON(DCEL & D, const char *file_out) {
   // to do
@@ -557,8 +571,10 @@ int main(int argc, const char * argv[]) {
     printDCEL(D);
     // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
     mergeCoPlanarFaces(D);
-
-    // 5. write the meshes with their faces to a valid CityJSON output file. ~~~~~~~~~~~~~~ 09-03-2021~~~~~~~~~~~~~//
+    printDCEL(D);
+    D.cleanup();
+    printDCEL(D);
+    //printDCEL(D); 5. write the meshes with their faces to a valid CityJSON output file. ~~~~~~~~~~~~~~ 09-03-2021~~~~~~~~~~~~~//
     std::fstream fl;
     fl.open(file_out, std::fstream::in | std::fstream::out | std::fstream::trunc);
     fl << "{\n\"type\": \"CityJSON\",\n\"version\": \"1.0\",\n";
@@ -575,7 +591,6 @@ int main(int argc, const char * argv[]) {
             HalfEdge *e = i->exteriorEdge;
             const HalfEdge *e_start = e;
             do {
-                std::cout << " -> " << *e->origin << "\n";
                 if (e->next != e_start) {
                 fl << e->origin->i-1 << ",";
                 } else {fl << e->origin->i-1;}
@@ -588,7 +603,6 @@ int main(int argc, const char * argv[]) {
         HalfEdge *e = i->exteriorEdge;
         const HalfEdge *e_start = e;
         do {
-            std::cout << " -> " << *e->origin << "\n";
             if (e->next != e_start) {
                 fl << e->origin->i-1 << ",";
             } else {fl << e->origin->i-1;}
