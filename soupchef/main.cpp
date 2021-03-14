@@ -220,22 +220,31 @@ double angle(std::vector<double> n1, std::vector<double> n2) {
     return angle = angle*180/M_PI;
 }
 void flip012_201(Face* triangle){
-    Vertex* t0 = triangle->exteriorEdge->destination;
-    Vertex* t2 = triangle->exteriorEdge->prev->origin;
-    Vertex* t1 = triangle->exteriorEdge->origin;
+    HalfEdge* e0 = triangle->exteriorEdge;
+    HalfEdge* e1 = e0->next;
+    HalfEdge* e2 = e0->prev;
+    Vertex* t0 = e0->destination;
+    Vertex* t1 = e0->origin;
+    Vertex* t2 = e0->next->destination;
+    //HalfEdge* twinnext = triangle->exteriorEdge->prev->twin;
+    //HalfEdge* twinprev = triangle->exteriorEdge->next->twin;
 
     triangle->exteriorEdge->origin = t0;
-    triangle->exteriorEdge->destination = t1;
-    triangle->exteriorEdge->next->origin = t2;
-    triangle->exteriorEdge->next->destination =t0;
-    triangle->exteriorEdge->prev->origin = t1;
-    triangle->exteriorEdge->prev->destination = t2;
-    HalfEdge* e1 = triangle->exteriorEdge->next;
-    HalfEdge* e2 = triangle->exteriorEdge->prev;
-    HalfEdge* tw1 = triangle->exteriorEdge->next->twin;
-    HalfEdge* tw2 = triangle->exteriorEdge->prev->twin;
+    triangle->exteriorEdge->destination = t1 ;
     triangle->exteriorEdge->next = e2;
     triangle->exteriorEdge->prev = e1;
+
+    triangle->exteriorEdge->next->origin = t1;
+    triangle->exteriorEdge->next->destination = t2 ;
+    triangle->exteriorEdge->next->next = e1;
+    triangle->exteriorEdge->next->prev = e0;
+
+    triangle->exteriorEdge->prev->origin = t2;
+    triangle->exteriorEdge->prev->destination = t0 ;
+    triangle->exteriorEdge->prev->next = e0;
+    triangle->exteriorEdge->prev->prev = e2;
+
+
     std::cout<<"flipped\n";
 }
 
@@ -467,16 +476,41 @@ void mergeCoPlanarFaces(DCEL & D) {
                 neigh->eliminate(); // Eliminate the neighboring edge
                 neigh->twin->eliminate(); //Eliminate the twin of the neigboring edge. aka the edge of current f.
                 neigh->incidentFace->eliminate();
-                neigh->next->incidentFace = f.get(); // Set the incident face of the next edge of the coplanar neighbor as the current face
-                neigh->prev->incidentFace = f.get();// Set the incident face of the previous edge of the coplanar neighbor as the current face
+                traversed_faced.push_back(neigh->incidentFace);
+
+                neigh->next->incidentFace = neigh->twin->incidentFace; // Set the incident face of the next edge of the coplanar neighbor as the current face
+                neigh->prev->incidentFace = neigh->twin->incidentFace;// Set the incident face of the previous edge of the coplanar neighbor as the current face
+
+
+                neigh->twin->next->prev = neigh->prev;
+                neigh->twin->prev->next = neigh->next;
 
                 neigh->prev->next = neigh->twin->next;
                 neigh->next->prev = neigh->twin->prev;
+
+
+
+                //neigh->incidentFace = f.get();
+                neigh->next =neigh->twin;
+                neigh->prev =neigh->twin;
+                neigh->twin->next =neigh;
+                neigh->twin->prev =neigh;
                 int a=0;
             }
         }
     }
+    printDCEL(D);
+
     D.cleanup();
+    printDCEL(D);
+    std::map<Face*, std::vector<HalfEdge*>> FtoE;
+    for (auto const& face : D.faces()){FtoE[face.get()];}
+    for (auto const& edge : D.halfEdges()){
+        FtoE[edge->incidentFace].push_back(edge.get());
+    }
+
+
+
     for (auto const& f: D.faces()) {
         HalfEdge *e = f->exteriorEdge;
         const HalfEdge *e_start = e;
@@ -494,8 +528,8 @@ void exportCityJSON(DCEL & D, const char *file_out) {
 
 
 int main(int argc, const char * argv[]) {
-    const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube_soup.obj";
-    const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube.json";
+    const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk_soup.obj";
+    const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk.json";
 
 
 
@@ -520,6 +554,7 @@ int main(int argc, const char * argv[]) {
     //    are pointing outwards).
 
     orientMeshes(D, mesh_vertices);
+    printDCEL(D);
     // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
     mergeCoPlanarFaces(D);
 
@@ -536,11 +571,34 @@ int main(int argc, const char * argv[]) {
         unsigned int destination = i->exteriorEdge->destination->i;
         unsigned int previous = i->exteriorEdge->prev->origin->i;
         if (i == D.faces().back()) {
-            fl << "[[" << origin-1 << ", " << destination-1 << ", " << previous-1 << "]]\n\t\t]\n\t}]\n}},\n";
+            fl << "[[";
+            HalfEdge *e = i->exteriorEdge;
+            const HalfEdge *e_start = e;
+            do {
+                std::cout << " -> " << *e->origin << "\n";
+                if (e->next != e_start) {
+                fl << e->origin->i-1 << ",";
+                } else {fl << e->origin->i-1;}
+                e = e->next;
+            } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
+            fl << "]]\n\t\t]\n\t}]\n}},\n";
             break;
         }
-        fl << "[[" << origin-1 << ", " << destination-1 << ", " << previous-1 << "]], ";
+        fl << "[[";
+        HalfEdge *e = i->exteriorEdge;
+        const HalfEdge *e_start = e;
+        do {
+            std::cout << " -> " << *e->origin << "\n";
+            if (e->next != e_start) {
+                fl << e->origin->i-1 << ",";
+            } else {fl << e->origin->i-1;}
+
+            e = e->next;
+        } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
+        fl << "]],";
     }
+
+
     fl << "\"vertices\": [\n";
 
     for (auto const &i : vertices) {
