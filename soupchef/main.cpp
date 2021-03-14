@@ -475,7 +475,7 @@ void mergeCoPlanarFaces(DCEL & D) {
             if (neigh->isEliminated()){continue;}
             std::vector<double> neigh_norm = Normal(neigh->incidentFace);
             if (angle(curr_norm,neigh_norm) == 0) {
-                neigh->eliminate(); // Eliminate the neighboring edge
+                neigh->twin->twin->eliminate(); // Eliminate the neighboring edge
                 neigh->twin->eliminate(); //Eliminate the twin of the neigboring edge. aka the edge of current f.
                 neigh->incidentFace->eliminate();
                 traversed_faced.push_back(neigh->incidentFace);
@@ -490,6 +490,7 @@ void mergeCoPlanarFaces(DCEL & D) {
                // neigh->next->incidentFace = neigh->twin->incidentFace; // Set the incident face of the next edge of the coplanar neighbor as the current face
                // neigh->prev->incidentFace = neigh->twin->incidentFace;// Set the incident face of the previous edge of the coplanar neighbor as the current face
                 if (f->hasDanglingLink()){f->exteriorEdge = f->exteriorEdge->prev;}
+                neigh->incidentFace->exteriorEdge = D.halfEdges().front().get();
 
                 neigh->twin->next->prev = neigh->prev;
                 neigh->twin->prev->next = neigh->next;
@@ -497,15 +498,14 @@ void mergeCoPlanarFaces(DCEL & D) {
                 neigh->prev->next = neigh->twin->next;
                 neigh->next->prev = neigh->twin->prev;
 
+                neigh->twin = f->exteriorEdge->twin;
+                neigh->twin->twin = f->exteriorEdge;
                 int a=0;
             }
         }
-        if (f->hasDanglingLink()){ //
-            f->exteriorEdge = f->exteriorEdge->next;
-            std::cout<<"stop\n";
-        }
+
     }
- //   printDCEL(D);
+    printDCEL(D);
 
     for (auto const& edge : D.halfEdges()){
     if (edge->hasDanglingLink()){
@@ -525,7 +525,15 @@ void mergeCoPlanarFaces(DCEL & D) {
             }
         }
     printDCEL(D);
-    int o=0;
+
+//2nd layer
+        for (auto const& edge : D.halfEdges()){
+            if (edge->hasDanglingLink()){
+                edge->twin=D.halfEdges().front().get();
+            int ad=0;
+            }    }
+
+
     //D.cleanup();
         printDCEL(D);
     std::map<Face*, std::vector<HalfEdge*>> FtoE;
