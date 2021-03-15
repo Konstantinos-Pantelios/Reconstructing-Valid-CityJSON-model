@@ -401,7 +401,7 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<std::vector<double>>>& verti
 
         auto minc = cornerpoints(vertice[mesh_count], "min");
         auto maxc = cornerpoints(vertice[mesh_count], "max");
-        o = {minc[0] - 5, ((maxc[1] - minc[1]) / 2) + minc[1], ((maxc[2] - minc[2]) / 1.5) + minc[2]};
+        o = {minc[0] - minc[0]*2, ((maxc[1] - minc[1]) / 2) + minc[1], ((maxc[2] - minc[2]) / 1.5) + minc[2]+2};
         d = {mesh_faces.back()->exteriorEdge->origin->x,
              mesh_faces.back()->exteriorEdge->origin->y,
              mesh_faces.back()->exteriorEdge->origin->z}; //destination of ray -> a vertex of the last face of the mesh.
@@ -468,7 +468,17 @@ void mergeCoPlanarFaces(DCEL & D) {
         if (f->isEliminated()){continue;}
         traversed_faced.push_back(f);
         std::vector<double> curr_norm = Normal(f);
-        std::vector<HalfEdge*> ne012 = {f->exteriorEdge->twin, f->exteriorEdge->next->twin, f->exteriorEdge->prev->twin};
+        std::vector<HalfEdge*> ne012;
+        HalfEdge *e = f->exteriorEdge;
+        const HalfEdge *e_start = e;
+        do {
+            ne012.push_back(e->twin);
+            e = e->next;
+        } while (e_start != e);
+
+
+
+        //std::vector<HalfEdge*> ne012 = {f->exteriorEdge->twin, f->exteriorEdge->next->twin, f->exteriorEdge->prev->twin};
         for (auto const& neigh : ne012) {
             if (std::find(traversed_faced.begin(), traversed_faced.end(), neigh->incidentFace) !=
                 traversed_faced.end()) { continue; }
@@ -586,6 +596,9 @@ int main(int argc, const char * argv[]) {
     printDCEL(D);
     // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
     mergeCoPlanarFaces(D);
+    mergeCoPlanarFaces(D); // fixes hole_pygon
+    mergeCoPlanarFaces(D);
+
     printDCEL(D);
     D.cleanup();
     printDCEL(D);
@@ -596,7 +609,7 @@ int main(int argc, const char * argv[]) {
     fl
             << "\"CityObjects\": {\"id-1\" : {\n\t\"type\": \"Building\",\n\t\"geometry\": [{\n\t\t\"type\": \"MultiSurface\",\n\t\t\"lod\": 2,\n\t\t\"boundaries\": [\n\t\t\t";
 
-//CHECK THIS, IT WORKS WITH THE OLDER IMPLEMENTATION OF INDEXING
+
     for (auto const &i : D.faces()) {
         unsigned int origin = i->exteriorEdge->origin->i; //->exteriorEdge->origin->i;
         unsigned int destination = i->exteriorEdge->destination->i;
