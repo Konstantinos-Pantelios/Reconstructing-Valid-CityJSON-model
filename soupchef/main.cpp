@@ -489,7 +489,7 @@ void mergeCoPlanarFaces(DCEL & D) {
 
                // neigh->next->incidentFace = neigh->twin->incidentFace; // Set the incident face of the next edge of the coplanar neighbor as the current face
                // neigh->prev->incidentFace = neigh->twin->incidentFace;// Set the incident face of the previous edge of the coplanar neighbor as the current face
-                if (f->hasDanglingLink()){f->exteriorEdge = f->exteriorEdge->prev;}
+                //if (f->hasDanglingLink()){f->exteriorEdge = f->exteriorEdge->prev;}
                 neigh->incidentFace->exteriorEdge = D.halfEdges().front().get();
 
                 neigh->twin->next->prev = neigh->prev;
@@ -498,9 +498,16 @@ void mergeCoPlanarFaces(DCEL & D) {
                 neigh->prev->next = neigh->twin->next;
                 neigh->next->prev = neigh->twin->prev;
 
+
+
+                f->exteriorEdge = neigh->twin->next;
+
                 neigh->twin = f->exteriorEdge->twin;
                 neigh->twin->twin = f->exteriorEdge;
-                int a=0;
+
+
+
+                        int a=0;
             }
         }
 
@@ -533,7 +540,7 @@ void mergeCoPlanarFaces(DCEL & D) {
             int ad=0;
             }    }
 
-
+/*
     //D.cleanup();
         printDCEL(D);
     std::map<Face*, std::vector<HalfEdge*>> FtoE;
@@ -541,7 +548,7 @@ void mergeCoPlanarFaces(DCEL & D) {
     for (auto const& edge : D.halfEdges()){
         FtoE[edge->incidentFace].push_back(edge.get());
     }
-
+*/
 }}
 // 5.
 void exportCityJSON(DCEL & D, const char *file_out) {
