@@ -459,107 +459,87 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<std::vector<double>>>& verti
 }
 
 // 4.
-void mergeCoPlanarFaces(DCEL & D) {
+void mergeCoPlanarFaces(DCEL & D, DCEL& tempD) {
+
     for (auto const &mesh : D.infiniteFace()->holes) {
         auto mesh_faces = getFaces(mesh);
 
     std::vector<Face* > traversed_faced;
-    for (auto const& f : mesh_faces){
-        if (f->isEliminated()){continue;}
-        traversed_faced.push_back(f);
-        std::vector<double> curr_norm = Normal(f);
-        std::vector<HalfEdge*> ne012;
-        HalfEdge *e = f->exteriorEdge;
-        const HalfEdge *e_start = e;
-        do {
-            ne012.push_back(e->twin);
-            e = e->next;
-        } while (e_start != e);
+    for (auto const& face : mesh_faces){
+        if (face->isEliminated()){std::cout << "line 485\n"; continue;}
+        traversed_faced.push_back(face);
+        std::stack<Face *> facestack;
+        facestack.push(face);
+        std::vector<double> curr_norm = Normal(face);
+
+        while (!facestack.empty()) {
+            auto check_face = facestack.top();
+            traversed_faced.push_back(check_face);
+            facestack.pop();
+
+            HalfEdge *e = check_face->exteriorEdge;
+            const HalfEdge *e_start = e;
+            do {
+                std::vector<double> neigh_norm = Normal(e->twin->incidentFace);
+                if (e->incidentFace == e->twin->incidentFace){
+                    std::cout << "here";}
+                if (angle(curr_norm,neigh_norm) < 1){
+                    e->eliminate(); // Eliminate the edge of checking face
+                    e->twin->eliminate(); //Eliminate the twin of the checking edge. aka the edge of neighbor face.
+
+                    e->twin->incidentFace->eliminate(); // Eliminate the neighboring face
 
 
 
-        //std::vector<HalfEdge*> ne012 = {f->exteriorEdge->twin, f->exteriorEdge->next->twin, f->exteriorEdge->prev->twin};
-        for (auto const& neigh : ne012) {
-            if (std::find(traversed_faced.begin(), traversed_faced.end(), neigh->incidentFace) !=
-                traversed_faced.end()) { continue; }
-            if (neigh->isEliminated()){continue;}
-            std::vector<double> neigh_norm = Normal(neigh->incidentFace);
-            if (angle(curr_norm,neigh_norm) == 0) {
-                neigh->twin->twin->eliminate(); // Eliminate the neighboring edge
-                neigh->twin->eliminate(); //Eliminate the twin of the neigboring edge. aka the edge of current f.
-                neigh->incidentFace->eliminate();
-                traversed_faced.push_back(neigh->incidentFace);
+                    traversed_faced.push_back(e->twin->incidentFace);
+                    facestack.push(check_face);
 
-                HalfEdge *e = neigh->incidentFace->exteriorEdge;
-                const HalfEdge *e_start = e;
-                do {
-                    e->incidentFace = neigh->twin->incidentFace;
-                    e = e->next;
-                } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
+                    //Link redirections to make the merged face valid (NOTE: not the eliminated ones)
+                    e->prev->next = e->twin->next;
+                    e->twin->next->prev = e->prev;
 
-               // neigh->next->incidentFace = neigh->twin->incidentFace; // Set the incident face of the next edge of the coplanar neighbor as the current face
-               // neigh->prev->incidentFace = neigh->twin->incidentFace;// Set the incident face of the previous edge of the coplanar neighbor as the current face
-                //if (f->hasDanglingLink()){f->exteriorEdge = f->exteriorEdge->prev;}
-                neigh->incidentFace->exteriorEdge = D.halfEdges().front().get();
+                    e->next->prev = e->twin->prev;
+                    e->twin->prev->next = e->next;
 
-                neigh->twin->next->prev = neigh->prev;
-                neigh->twin->prev->next = neigh->next;
+                    e->twin->next->incidentFace = check_face;
+                    e->twin->prev->incidentFace = check_face;
 
-                neigh->prev->next = neigh->twin->next;
-                neigh->next->prev = neigh->twin->prev;
+                    e_start=e->next;
+                    check_face->exteriorEdge = e->next;
+
+                }
 
 
 
-                f->exteriorEdge = neigh->twin->next;
+                e = e->next;
+            } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
 
-                neigh->twin = f->exteriorEdge->twin;
-                neigh->twin->twin = f->exteriorEdge;
-
-
-
-                        int a=0;
-            }
         }
 
-    }
-    printDCEL(D);
-
-    for (auto const& edge : D.halfEdges()){
-    if (edge->hasDanglingLink()){
-        if (edge->twin->isEliminated()){edge.get()->twin = edge->next;}
-        if (edge->next->isEliminated()){edge.get()->next = edge->prev;}
-        if (edge->prev->isEliminated()){edge.get()->prev = edge->twin;}
-    }
-    if (edge->incidentFace->isEliminated()){
-        edge.get()->incidentFace = edge->next->incidentFace;
-    }
+        //Redirect Dangling links into temporary DCEL structure!!!!!! make it a function
+        for (auto const& e : D.halfEdges()){
+            if (e->isEliminated()){
+                e->incidentFace=tempD.faces().front().get();
+                e->twin->incidentFace=tempD.faces().front().get();
+                e->twin=tempD.faces().front().get()->exteriorEdge;
+                e->twin->twin=tempD.faces().front().get()->exteriorEdge;
+                e->next=tempD.faces().front().get()->exteriorEdge;
+                e->twin->next = tempD.faces().front().get()->exteriorEdge;
+                e->prev=tempD.faces().front().get()->exteriorEdge;
+                e->twin->next = tempD.faces().front().get()->exteriorEdge;
+            }
+        }
+        for (auto const& f : D.faces()){
+            if (f->hasDanglingLink()){
+                f.get()->exteriorEdge = tempD.faces().front().get()->exteriorEdge;
+            }
+        }
 }
-        for (auto const& face : D.faces()) {
-            if (face->hasDanglingLink()) {
-                if (face->exteriorEdge->isEliminated()){face->exteriorEdge=face->exteriorEdge->next;}
-                else if (face->exteriorEdge->next->isEliminated()){face->exteriorEdge->next = face->exteriorEdge->prev;}
-                else if (face->exteriorEdge->prev->isEliminated()){face->exteriorEdge->prev = face->exteriorEdge;}
-            }
-        }
-    printDCEL(D);
+printDCEL(D);
 
-//2nd layer
-        for (auto const& edge : D.halfEdges()){
-            if (edge->hasDanglingLink()){
-                edge->twin=D.halfEdges().front().get();
-            int ad=0;
-            }    }
-
-/*
-    //D.cleanup();
-        printDCEL(D);
-    std::map<Face*, std::vector<HalfEdge*>> FtoE;
-    for (auto const& face : D.faces()){FtoE[face.get()];}
-    for (auto const& edge : D.halfEdges()){
-        FtoE[edge->incidentFace].push_back(edge.get());
     }
-*/
-}}
+
+}
 // 5.
 void exportCityJSON(DCEL & D, const char *file_out) {
   // to do
@@ -571,6 +551,19 @@ int main(int argc, const char * argv[]) {
     const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk.json";
 
 
+    DCEL tempD;
+    Face* Ftemp = tempD.createFace();
+    Vertex *vtemp = tempD.createVertex(0, 0, 0, 1);
+    HalfEdge *etemp = tempD.createHalfEdge();
+
+    tempD.faces().front().get()->exteriorEdge=etemp;
+    tempD.faces().front().get()->exteriorEdge->origin = vtemp;
+    tempD.faces().front().get()->exteriorEdge->destination = vtemp;
+    tempD.faces().front().get()->exteriorEdge->next = etemp;
+    tempD.faces().front().get()->exteriorEdge->prev = etemp;
+    tempD.faces().front().get()->exteriorEdge->twin = etemp;
+    tempD.faces().front().get()->exteriorEdge->incidentFace = Ftemp;
+    printDCEL(tempD);
 
 
     // Demonstrate how to use the DCEL to get you started (see function implementation below)
@@ -595,14 +588,118 @@ int main(int argc, const char * argv[]) {
     orientMeshes(D, mesh_vertices);
     printDCEL(D);
     // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
-    mergeCoPlanarFaces(D);
-    mergeCoPlanarFaces(D); // fixes hole_pygon
-    mergeCoPlanarFaces(D);
+    mergeCoPlanarFaces(D,tempD);
+    //mergeCoPlanarFaces(D); // fixes hole_pygon
+    //mergeCoPlanarFaces(D);
+
+    for (auto const& e : D.halfEdges()){
+        if (e->hasDanglingLink()){
+            auto a = 1;
+            e->incidentFace = tempD.faces().front().get();
+        }
+    }
+    for (auto const& F : D.faces()){
+        if (F->hasDanglingLink()){
+            auto a = 1;
+            F->exteriorEdge->incidentFace = tempD.faces().front().get();
+        }
+    }
+
+
+
 
     printDCEL(D);
     D.cleanup();
     printDCEL(D);
-    //printDCEL(D); 5. write the meshes with their faces to a valid CityJSON output file. ~~~~~~~~~~~~~~ 09-03-2021~~~~~~~~~~~~~//
+
+    //search for holes
+    for (auto const& Face : D.faces()){
+        HalfEdge *e = Face->exteriorEdge;
+        const HalfEdge *e_start = e;
+        do {
+            if (Face->holes.size()!=0){ break;}
+            if (e->incidentFace == e->twin->incidentFace && e_start==e){continue;}
+            if (e->incidentFace == e->twin->incidentFace){
+
+                Face->holes.push_back(e->next);
+                e->eliminate();
+                e->twin->eliminate();
+
+
+                e->prev->next = e->twin->next;
+                e->twin->next->prev = e->prev;
+
+                e->next->prev = e->twin->prev;
+                e->twin->prev->next = e->next;
+                //e_start = e->next;
+
+                //e->twin=tempD.halfEdges().front().get();
+                //e=tempD.halfEdges().front().get();
+            }
+            e = e->next;
+        } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
+    }
+
+    //Redirect Dangling links into temporary DCEL structure!!!!!! make it a function
+    for (auto const& e : D.halfEdges()){
+        if (e->isEliminated()){
+            e->incidentFace=tempD.faces().front().get();
+            e->twin->incidentFace=tempD.faces().front().get();
+            e->twin=tempD.faces().front().get()->exteriorEdge;
+            e->twin->twin=tempD.faces().front().get()->exteriorEdge;
+            e->next=tempD.faces().front().get()->exteriorEdge;
+            e->twin->next = tempD.faces().front().get()->exteriorEdge;
+            e->prev=tempD.faces().front().get()->exteriorEdge;
+            e->twin->next = tempD.faces().front().get()->exteriorEdge;
+        }
+    }
+    for (auto const& f : D.faces()){
+        if (f->hasDanglingLink()){
+            f.get()->exteriorEdge = tempD.faces().front().get()->exteriorEdge;
+        }
+    }
+
+    printDCEL(D);
+    D.cleanup();
+    printDCEL(D);
+
+
+//Do this for every mesh (bk) find if face is interior hole or exterior and flip accordingly
+for (auto const &mesh : D.infiniteFace()->holes) {
+    unsigned int mesh_count=0;
+        std::vector<double> o; //origin of ray
+        std::vector<double> d; //destination of ray
+        auto mesh_faces = getFaces(mesh); //mesh_faces contain only those faces that difine the specific mesh.for (auto const& face : D.faces()){
+        auto minc = cornerpoints(mesh_vertices[mesh_count], "min");
+        auto maxc = cornerpoints(mesh_vertices[mesh_count], "max");
+        o = {minc[0] - minc[0]*2, ((maxc[1] - minc[1]) / 2) + minc[1], ((maxc[2] - minc[2]) / 1.5) + minc[2]+2};
+        d = {mesh_faces.back()->exteriorEdge->origin->x,
+                 mesh_faces.back()->exteriorEdge->origin->y,
+                 mesh_faces.back()->exteriorEdge->origin->z}; //destination of ray -> a vertex of the last face of the mesh.
+
+
+            for (auto const& faces : D.faces()){
+
+            if (faces->holes.size()!=0){
+                std::vector<double> fv0{faces->exteriorEdge->origin->x, faces->exteriorEdge->origin->y,
+                                        faces->exteriorEdge->origin->z};
+                std::vector<double> fv1{faces->exteriorEdge->destination->x, faces->exteriorEdge->destination->y,
+                                        faces->exteriorEdge->destination->z};
+                std::vector<double> fv2{faces->exteriorEdge->prev->origin->x, faces->exteriorEdge->prev->origin->y,
+                                        faces->exteriorEdge->prev->origin->z};
+                HalfEdge* interior = faces->exteriorEdge; //temporary half edges to use in flip
+                HalfEdge* exterior = faces->holes.front();
+                if (!checkNormal(fv0, fv1, fv2, o, d)){
+                    faces->holes.front()=interior;
+                    faces->exteriorEdge=exterior;
+                }
+            }
+            }
+
+}
+
+
+    //5. write the meshes with their faces to a valid CityJSON output file. ~~~~~~~~~~~~~~ 09-03-2021~~~~~~~~~~~~~//
     std::fstream fl;
     fl.open(file_out, std::fstream::in | std::fstream::out | std::fstream::trunc);
     fl << "{\n\"type\": \"CityJSON\",\n\"version\": \"1.0\",\n";
@@ -624,7 +721,21 @@ int main(int argc, const char * argv[]) {
                 } else {fl << e->origin->i-1;}
                 e = e->next;
             } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
-            fl << "]]\n\t\t]\n\t}]\n}},\n";
+            if (i->holes.size()==0){
+                fl << "]]\n\t\t]\n\t}]\n}},\n";
+            }
+/*Holes*/   else {
+                fl << "],[";
+                HalfEdge *e = i->holes.front();
+                const HalfEdge *e_start = e;
+                do {
+                    if (e->next != e_start) {
+                        fl << e->origin->i-1 << ",";
+                    } else {fl << e->origin->i-1;}
+                    e = e->next;
+                } while (e_start != e);
+                fl << "]]\n\t\t]\n\t}]\n}},\n";
+            }
             break;
         }
         fl << "[[";
@@ -637,7 +748,21 @@ int main(int argc, const char * argv[]) {
 
             e = e->next;
         } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
-        fl << "]],";
+        if (i->holes.size()==0){
+            fl << "]],";
+        }
+/*Holes*/   else {
+            fl << "],[";
+            HalfEdge *e = i->holes.front();
+            const HalfEdge *e_start = e;
+            do {
+                if (e->next != e_start) {
+                    fl << e->origin->i-1 << ",";
+                } else {fl << e->origin->i-1;}
+                e = e->next;
+            } while (e_start != e);
+            fl << "]],";
+        }
     }
 
 
