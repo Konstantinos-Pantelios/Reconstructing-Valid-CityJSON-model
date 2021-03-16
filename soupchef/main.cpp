@@ -265,6 +265,7 @@ std::vector<Face* > getFaces(HalfEdge* edge){
         auto validface = facestack.top();
         traversed_faced.push_back(validface);
         facestack.pop();
+        //if (validface->isEliminated()){continue;} //16-03
         std::vector<HalfEdge *> e012 = {validface->exteriorEdge, validface->exteriorEdge->next,
                                         validface->exteriorEdge->prev};
 
@@ -401,7 +402,7 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<std::vector<double>>>& verti
 
         auto minc = cornerpoints(vertice[mesh_count], "min");
         auto maxc = cornerpoints(vertice[mesh_count], "max");
-        o = {minc[0] - minc[0]*2, ((maxc[1] - minc[1]) / 2) + minc[1], ((maxc[2] - minc[2]) / 1.5) + minc[2]+2};
+        o = {minc[0]+(maxc[0] - minc[0]), ((maxc[1] - minc[1]) / 2) + minc[1], ((maxc[2] - minc[2]) / 1.5) + minc[2]+2};
         d = {mesh_faces.back()->exteriorEdge->origin->x,
              mesh_faces.back()->exteriorEdge->origin->y,
              mesh_faces.back()->exteriorEdge->origin->z}; //destination of ray -> a vertex of the last face of the mesh.
@@ -466,7 +467,7 @@ void mergeCoPlanarFaces(DCEL & D, DCEL& tempD) {
 
     std::vector<Face* > traversed_faced;
     for (auto const& face : mesh_faces){
-        if (face->isEliminated()){std::cout << "line 485\n"; continue;}
+        if (face->isEliminated()){; continue;}
         traversed_faced.push_back(face);
         std::stack<Face *> facestack;
         facestack.push(face);
@@ -484,6 +485,7 @@ void mergeCoPlanarFaces(DCEL & D, DCEL& tempD) {
                 if (e->incidentFace == e->twin->incidentFace){
                     std::cout << "here";}
                 if (angle(curr_norm,neigh_norm) < 1){
+                   //if(e_start == e){std::cout<<"maybe\n";continue;} /uncoment to run it but without merges.
                     e->eliminate(); // Eliminate the edge of checking face
                     e->twin->eliminate(); //Eliminate the twin of the checking edge. aka the edge of neighbor face.
 
@@ -535,8 +537,6 @@ void mergeCoPlanarFaces(DCEL & D, DCEL& tempD) {
             }
         }
 }
-printDCEL(D);
-
     }
 
 }
@@ -591,6 +591,7 @@ int main(int argc, const char * argv[]) {
     mergeCoPlanarFaces(D,tempD);
     //mergeCoPlanarFaces(D); // fixes hole_pygon
     //mergeCoPlanarFaces(D);
+
 
     for (auto const& e : D.halfEdges()){
         if (e->hasDanglingLink()){
@@ -665,17 +666,14 @@ int main(int argc, const char * argv[]) {
 
 
 //Do this for every mesh (bk) find if face is interior hole or exterior and flip accordingly
-for (auto const &mesh : D.infiniteFace()->holes) {
     unsigned int mesh_count=0;
-        std::vector<double> o; //origin of ray
-        std::vector<double> d; //destination of ray
-        auto mesh_faces = getFaces(mesh); //mesh_faces contain only those faces that difine the specific mesh.for (auto const& face : D.faces()){
-        auto minc = cornerpoints(mesh_vertices[mesh_count], "min");
-        auto maxc = cornerpoints(mesh_vertices[mesh_count], "max");
-        o = {minc[0] - minc[0]*2, ((maxc[1] - minc[1]) / 2) + minc[1], ((maxc[2] - minc[2]) / 1.5) + minc[2]+2};
-        d = {mesh_faces.back()->exteriorEdge->origin->x,
-                 mesh_faces.back()->exteriorEdge->origin->y,
-                 mesh_faces.back()->exteriorEdge->origin->z}; //destination of ray -> a vertex of the last face of the mesh.
+ //mesh_faces contain only those faces that difine the specific mesh.for (auto const& face : D.faces()){
+        auto minc = cornerpoints(mesh_vertices[0], "min");
+        auto maxc = cornerpoints(mesh_vertices[0], "max");
+    std::vector<double> o = {minc[0]+(maxc[0] - minc[0]), ((maxc[1] - minc[1]) / 2) + minc[1], ((maxc[2] - minc[2]) / 1.5) + minc[2]+2};
+    std::vector<double> d = {D.faces().back()->exteriorEdge->origin->x,
+                 D.faces().back()->exteriorEdge->origin->y,
+                 D.faces().back()->exteriorEdge->origin->z}; //destination of ray -> a vertex of the last face of the mesh.
 
 
             for (auto const& faces : D.faces()){
@@ -694,8 +692,8 @@ for (auto const &mesh : D.infiniteFace()->holes) {
                     faces->exteriorEdge=exterior;
                 }
             }
-            }
 
+    mesh_count++;
 }
 
 
