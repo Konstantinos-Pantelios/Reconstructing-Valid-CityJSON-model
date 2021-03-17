@@ -518,25 +518,7 @@ void mergeCoPlanarFaces(DCEL & D, DCEL& tempD) {
         }}
 printDCEL(D);
 
-/*        //Redirect Dangling links into temporary DCEL structure!!!!!! make it a function
-        for (auto const& e : D.halfEdges()){
-            if (e->isEliminated()){
-                e->incidentFace=tempD.faces().front().get();
-                e->twin->incidentFace=tempD.faces().front().get();
-                e->twin=tempD.faces().front().get()->exteriorEdge;
-                e->twin->twin=tempD.faces().front().get()->exteriorEdge;
-                e->next=tempD.faces().front().get()->exteriorEdge;
-                e->twin->next = tempD.faces().front().get()->exteriorEdge;
-                e->prev=tempD.faces().front().get()->exteriorEdge;
-                e->twin->next = tempD.faces().front().get()->exteriorEdge;
-            }
-        }
-        for (auto const& f : D.faces()){
-            if (f->hasDanglingLink()){
-                f.get()->exteriorEdge = tempD.faces().front().get()->exteriorEdge;
-            }
-        }
-*/
+
 }
 
 }
@@ -547,8 +529,8 @@ void exportCityJSON(DCEL & D, const char *file_out) {
 
 
 int main(int argc, const char * argv[]) {
-    const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/polygonal_hole.obj";
-    const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/hole.json";
+    const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk_soup.obj";
+    const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk.json";
 
 
     DCEL tempD;
@@ -589,13 +571,19 @@ int main(int argc, const char * argv[]) {
 
     // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
     mergeCoPlanarFaces(D,tempD);
+
     //mergeCoPlanarFaces(D); // fixes hole_pygon
     //mergeCoPlanarFaces(D);
 
-
+int a = 0;
     printDCEL(D);
     D.cleanup();
     printDCEL(D);
+    for ( auto const& e:D.halfEdges()){
+        if(e->hasDanglingLink()){
+            a++;
+        }
+    }
 
     //search for holes
     for (auto const& Face : D.faces()){
@@ -617,53 +605,17 @@ int main(int argc, const char * argv[]) {
                 e->twin->prev->next = e->next;
 
 
-                e_start = e->next;
+                e_start = e->next; //avoid infinite loop;
 
                 //e->twin=tempD.halfEdges().front().get();
                 //e=tempD.halfEdges().front().get();
             }
             e = e->next;
         } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
-/*
-        for (auto const& edges : cords){
-        if(edges->isEliminated()){
-            e->prev->next = e->twin->next;
-
-
-            e->next->prev = e->twin->prev;
-
-        }
-    }
-8*/
-
     }
 
-/*
-    //Redirect Dangling links into temporary DCEL structure!!!!!! make it a function
-    for (auto const& e : D.halfEdges()){
-        if (e->isEliminated()){
-            e->incidentFace=tempD.faces().front().get();
-            e->twin->incidentFace=tempD.faces().front().get();
-            e->twin=tempD.faces().front().get()->exteriorEdge;
-            e->twin->twin=tempD.faces().front().get()->exteriorEdge;
-            e->next=tempD.faces().front().get()->exteriorEdge;
-            e->twin->next = tempD.faces().front().get()->exteriorEdge;
-            e->prev=tempD.faces().front().get()->exteriorEdge;
-            e->twin->next = tempD.faces().front().get()->exteriorEdge;
-        }
-    }
-    for (auto const& f : D.faces()){
-        if (f->hasDanglingLink()){
-            f.get()->exteriorEdge = tempD.faces().front().get()->exteriorEdge;
-        }
-    }
-*/
+
     printDCEL(D);
-    for ( auto const& e:D.halfEdges()){
-        if(e->hasDanglingLink()){
-            int a =1;
-        }
-    }
     D.cleanup();
     printDCEL(D);
 
@@ -673,7 +625,7 @@ int main(int argc, const char * argv[]) {
  //mesh_faces contain only those faces that difine the specific mesh.for (auto const& face : D.faces()){
         auto minc = cornerpoints(mesh_vertices[0], "min");
         auto maxc = cornerpoints(mesh_vertices[0], "max");
-    std::vector<double> o = {minc[0]+(maxc[0] - minc[0]), ((maxc[1] - minc[1]) / 2) + minc[1], ((maxc[2] - minc[2]) / 1.5) + minc[2]+2};
+    std::vector<double> o = {minc[0]+(maxc[0] - minc[0]), ((maxc[1] - minc[1]) / 2) + minc[1], (maxc[2]*1.5) + minc[2]+2};
     std::vector<double> d = {D.faces().back()->exteriorEdge->origin->x,
                  D.faces().back()->exteriorEdge->origin->y,
                  D.faces().back()->exteriorEdge->origin->z}; //destination of ray -> a vertex of the last face of the mesh.
@@ -698,6 +650,12 @@ int main(int argc, const char * argv[]) {
 
     mesh_count++;
 }
+            for (auto const& e:D.halfEdges()){
+                if (e->hasDanglingLink()) {
+                    e->incidentFace=e->twin->incidentFace;
+                }
+            }
+printDCEL(D);
 
 
     //5. write the meshes with their faces to a valid CityJSON output file. ~~~~~~~~~~~~~~ 09-03-2021~~~~~~~~~~~~~//
