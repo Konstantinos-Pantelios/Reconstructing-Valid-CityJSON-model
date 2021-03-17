@@ -402,7 +402,7 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<std::vector<double>>>& verti
 
         auto minc = cornerpoints(vertice[mesh_count], "min");
         auto maxc = cornerpoints(vertice[mesh_count], "max");
-        o = {minc[0]+(maxc[0] - minc[0]), ((maxc[1] - minc[1]) / 2) + minc[1], ((maxc[2] - minc[2]) / 1.5) + minc[2]+2};
+        o = {-10.0 * abs(round(minc[0])), -10.0 * abs(round(minc[1])), minc[2]+(maxc[2] - minc[2])/1.4};
         d = {mesh_faces.back()->exteriorEdge->origin->x,
              mesh_faces.back()->exteriorEdge->origin->y,
              mesh_faces.back()->exteriorEdge->origin->z}; //destination of ray -> a vertex of the last face of the mesh.
@@ -521,6 +521,8 @@ printDCEL(D);
 
 }
 
+
+
 }
 // 5.
 void exportCityJSON(DCEL & D, const char *file_out) {
@@ -529,8 +531,8 @@ void exportCityJSON(DCEL & D, const char *file_out) {
 
 
 int main(int argc, const char * argv[]) {
-    const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk_soup.obj";
-    const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk.json";
+    const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube_soup.obj";
+    const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube.json";
 
 
     DCEL tempD;
@@ -572,18 +574,13 @@ int main(int argc, const char * argv[]) {
     // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
     mergeCoPlanarFaces(D,tempD);
 
-    //mergeCoPlanarFaces(D); // fixes hole_pygon
-    //mergeCoPlanarFaces(D);
 
-int a = 0;
+
     printDCEL(D);
     D.cleanup();
     printDCEL(D);
-    for ( auto const& e:D.halfEdges()){
-        if(e->hasDanglingLink()){
-            a++;
-        }
-    }
+
+
 
     //search for holes
     for (auto const& Face : D.faces()){
@@ -620,12 +617,13 @@ int a = 0;
     printDCEL(D);
 
 
+
 //Do this for every mesh (bk) find if face is interior hole or exterior and flip accordingly
     unsigned int mesh_count=0;
  //mesh_faces contain only those faces that difine the specific mesh.for (auto const& face : D.faces()){
         auto minc = cornerpoints(mesh_vertices[0], "min");
         auto maxc = cornerpoints(mesh_vertices[0], "max");
-    std::vector<double> o = {minc[0]+(maxc[0] - minc[0]), ((maxc[1] - minc[1]) / 2) + minc[1], (maxc[2]*1.5) + minc[2]+2};
+    std::vector<double> o = {-10.0 * abs(round(minc[0]))/*minc[0]+(maxc[0] - minc[0]*/, ((maxc[1] - minc[1]) / 2) + minc[1], (maxc[2]*1.5) + minc[2]+2};
     std::vector<double> d = {D.faces().back()->exteriorEdge->origin->x,
                  D.faces().back()->exteriorEdge->origin->y,
                  D.faces().back()->exteriorEdge->origin->z}; //destination of ray -> a vertex of the last face of the mesh.
