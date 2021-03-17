@@ -245,7 +245,7 @@ void flip012_201(Face* triangle){
     triangle->exteriorEdge->prev->prev = e2;
 
 
-    std::cout<<"flipped\n";
+    //std::cout<<"flipped\n";
 }
 
 std::vector<double> Centroid(HalfEdge *f){
@@ -407,7 +407,6 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<std::vector<double>>>& verti
              mesh_faces.back()->exteriorEdge->origin->y,
              mesh_faces.back()->exteriorEdge->origin->z}; //destination of ray -> a vertex of the last face of the mesh.
 
-
         std::vector<Face *> ray_face; //triangles that the ray intersects
         for (auto const & i : mesh_faces) {
             if (intersects(o, d, i)) {
@@ -458,13 +457,12 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<std::vector<double>>>& verti
     mesh_count++;
     }
 }
-
 // 4.
 void mergeCoPlanarFaces(DCEL & D, DCEL& tempD) {
 
     for (auto const &mesh : D.infiniteFace()->holes) {
         auto mesh_faces = getFaces(mesh);
-
+      int c=0;
     std::vector<Face* > traversed_faced;
     for (auto const& face : mesh_faces){
         if (face->isEliminated()){; continue;}
@@ -475,23 +473,28 @@ void mergeCoPlanarFaces(DCEL & D, DCEL& tempD) {
 
         while (!facestack.empty()) {
             auto check_face = facestack.top();
-            traversed_faced.push_back(check_face);
+            //traversed_faced.push_back(check_face);
             facestack.pop();
 
             HalfEdge *e = check_face->exteriorEdge;
             const HalfEdge *e_start = e;
             do {
                 std::vector<double> neigh_norm = Normal(e->twin->incidentFace);
+
                 if (e->incidentFace == e->twin->incidentFace){
-                    std::cout << "here";}
+
+                    e = e->next;
+                    c++;
+                    continue;
+                    }
                 if (angle(curr_norm,neigh_norm) < 1){
-                   //if(e_start == e){std::cout<<"maybe\n";continue;} /uncoment to run it but without merges.
+
+
+                    //if(e_start == e){std::cout<<"maybe\n";continue;} //uncoment to run it but without merges.
                     e->eliminate(); // Eliminate the edge of checking face
                     e->twin->eliminate(); //Eliminate the twin of the checking edge. aka the edge of neighbor face.
 
                     e->twin->incidentFace->eliminate(); // Eliminate the neighboring face
-
-
 
                     traversed_faced.push_back(e->twin->incidentFace);
                     facestack.push(check_face);
@@ -506,19 +509,16 @@ void mergeCoPlanarFaces(DCEL & D, DCEL& tempD) {
                     e->twin->next->incidentFace = check_face;
                     e->twin->prev->incidentFace = check_face;
 
-                    e_start=e->next;
+                    //e_start=e->next; //prevents infinite loop // when a merge happens code gets out of the while loop an gets back in again to the updated polygonal (now) face.
                     check_face->exteriorEdge = e->next;
-
+                    break;
                 }
-
-
-
                 e = e->next;
             } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
+        }}
+printDCEL(D);
 
-        }
-
-        //Redirect Dangling links into temporary DCEL structure!!!!!! make it a function
+/*        //Redirect Dangling links into temporary DCEL structure!!!!!! make it a function
         for (auto const& e : D.halfEdges()){
             if (e->isEliminated()){
                 e->incidentFace=tempD.faces().front().get();
@@ -536,8 +536,8 @@ void mergeCoPlanarFaces(DCEL & D, DCEL& tempD) {
                 f.get()->exteriorEdge = tempD.faces().front().get()->exteriorEdge;
             }
         }
+*/
 }
-    }
 
 }
 // 5.
@@ -547,8 +547,8 @@ void exportCityJSON(DCEL & D, const char *file_out) {
 
 
 int main(int argc, const char * argv[]) {
-    const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk_soup.obj";
-    const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk.json";
+    const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/polygonal_hole.obj";
+    const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/hole.json";
 
 
     DCEL tempD;
@@ -586,27 +586,11 @@ int main(int argc, const char * argv[]) {
     //    are pointing outwards).
 
     orientMeshes(D, mesh_vertices);
-    printDCEL(D);
+
     // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
     mergeCoPlanarFaces(D,tempD);
     //mergeCoPlanarFaces(D); // fixes hole_pygon
     //mergeCoPlanarFaces(D);
-
-
-    for (auto const& e : D.halfEdges()){
-        if (e->hasDanglingLink()){
-            auto a = 1;
-            e->incidentFace = tempD.faces().front().get();
-        }
-    }
-    for (auto const& F : D.faces()){
-        if (F->hasDanglingLink()){
-            auto a = 1;
-            F->exteriorEdge->incidentFace = tempD.faces().front().get();
-        }
-    }
-
-
 
 
     printDCEL(D);
@@ -615,32 +599,46 @@ int main(int argc, const char * argv[]) {
 
     //search for holes
     for (auto const& Face : D.faces()){
+        std::vector<HalfEdge*> cords;
         HalfEdge *e = Face->exteriorEdge;
         const HalfEdge *e_start = e;
         do {
-            if (Face->holes.size()!=0){ break;}
-            if (e->incidentFace == e->twin->incidentFace && e_start==e){continue;}
+           // if (e->incidentFace == e->twin->incidentFace && e_start==e){continue;}
             if (e->incidentFace == e->twin->incidentFace){
-
+                cords.push_back(e);
                 Face->holes.push_back(e->next);
                 e->eliminate();
                 e->twin->eliminate();
-
 
                 e->prev->next = e->twin->next;
                 e->twin->next->prev = e->prev;
 
                 e->next->prev = e->twin->prev;
                 e->twin->prev->next = e->next;
-                //e_start = e->next;
+
+
+                e_start = e->next;
 
                 //e->twin=tempD.halfEdges().front().get();
                 //e=tempD.halfEdges().front().get();
             }
             e = e->next;
         } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
+/*
+        for (auto const& edges : cords){
+        if(edges->isEliminated()){
+            e->prev->next = e->twin->next;
+
+
+            e->next->prev = e->twin->prev;
+
+        }
+    }
+8*/
+
     }
 
+/*
     //Redirect Dangling links into temporary DCEL structure!!!!!! make it a function
     for (auto const& e : D.halfEdges()){
         if (e->isEliminated()){
@@ -659,8 +657,13 @@ int main(int argc, const char * argv[]) {
             f.get()->exteriorEdge = tempD.faces().front().get()->exteriorEdge;
         }
     }
-
+*/
     printDCEL(D);
+    for ( auto const& e:D.halfEdges()){
+        if(e->hasDanglingLink()){
+            int a =1;
+        }
+    }
     D.cleanup();
     printDCEL(D);
 
