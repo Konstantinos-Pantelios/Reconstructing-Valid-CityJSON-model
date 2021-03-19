@@ -403,9 +403,7 @@ void orientMeshes(DCEL & D ,std::vector<std::vector<std::vector<double>>>& verti
         auto minc = cornerpoints(vertice[mesh_count], "min");
         auto maxc = cornerpoints(vertice[mesh_count], "max");
         o = {-10.0 * abs(round(minc[0])), -10.0 * abs(round(minc[1])), minc[2]+(maxc[2] - minc[2])/1.4};
-        d = {mesh_faces.back()->exteriorEdge->origin->x,
-             mesh_faces.back()->exteriorEdge->origin->y,
-             mesh_faces.back()->exteriorEdge->origin->z}; //destination of ray -> a vertex of the last face of the mesh.
+        d = Centroid(mesh_faces.at(mesh_faces.size()-2)->exteriorEdge);//{mesh_faces.back()->exteriorEdge->origin->x,mesh_faces.back()->exteriorEdge->origin->y,mesh_faces.back()->exteriorEdge->origin->z}; //destination of ray -> a vertex of the last face of the mesh.
 
         std::vector<Face *> ray_face; //triangles that the ray intersects
         for (auto const & i : mesh_faces) {
@@ -633,8 +631,8 @@ void exportCityJSON(DCEL & D,std::vector<std::vector<double>> vertices, const ch
 }
 
     int main(int argc, const char *argv[]) {
-        const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/polygonal_hole.obj";
-        const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/hole.json";
+        const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube_soup.obj";
+        const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cubes.json";
 
         DCEL tempD;
         Face *Ftemp = tempD.createFace();
