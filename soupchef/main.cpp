@@ -633,8 +633,8 @@ void exportCityJSON(DCEL & D,std::vector<std::vector<double>> vertices, const ch
 }
 
     int main(int argc, const char *argv[]) {
-        const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk_soup.obj";
-        const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk.json";
+        const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/polygonal_hole.obj";
+        const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/hole.json";
 
         DCEL tempD;
         Face *Ftemp = tempD.createFace();
