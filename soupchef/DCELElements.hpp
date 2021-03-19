@@ -151,7 +151,8 @@ struct Face : DCELElement {
 
   // a list containing one half-edge for each interior chain (a hole) of this face
   std::list<HalfEdge*> holes;
-  
+  unsigned int mesh = 0;
+
   Face() {};
   Face(const Face&) = delete;
 

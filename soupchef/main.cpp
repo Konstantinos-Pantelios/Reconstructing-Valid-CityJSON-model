@@ -462,9 +462,10 @@ void mergeCoPlanarFaces(DCEL & D, DCEL& tempD) {
 
     for (auto const &mesh : D.infiniteFace()->holes) {
         auto mesh_faces = getFaces(mesh);
-      int c=0;
+      unsigned int c=0;
     std::vector<Face* > traversed_faced;
     for (auto const& face : mesh_faces){
+
         if (face->isEliminated()){; continue;}
         traversed_faced.push_back(face);
         std::stack<Face *> facestack;
@@ -525,165 +526,72 @@ printDCEL(D);
 
 }
 // 5.
-void exportCityJSON(DCEL & D, const char *file_out) {
-  // to do
-}
-
-
-int main(int argc, const char * argv[]) {
-    const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk_soup.obj";
-    const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk.json";
-
-
-    DCEL tempD;
-    Face* Ftemp = tempD.createFace();
-    Vertex *vtemp = tempD.createVertex(0, 0, 0, 1);
-    HalfEdge *etemp = tempD.createHalfEdge();
-
-    tempD.faces().front().get()->exteriorEdge=etemp;
-    tempD.faces().front().get()->exteriorEdge->origin = vtemp;
-    tempD.faces().front().get()->exteriorEdge->destination = vtemp;
-    tempD.faces().front().get()->exteriorEdge->next = etemp;
-    tempD.faces().front().get()->exteriorEdge->prev = etemp;
-    tempD.faces().front().get()->exteriorEdge->twin = etemp;
-    tempD.faces().front().get()->exteriorEdge->incidentFace = Ftemp;
-    printDCEL(tempD);
-
-
-    // Demonstrate how to use the DCEL to get you started (see function implementation below)
-    // you can remove this from the final code
-    //DemoDCEL();
-
-    // create an empty DCEL
-    DCEL D;
-    // 1. read the triangle soup from the OBJ input file and convert it to the DCEL,
-    std::vector<std::vector<double>> vertices;
-    std::vector<std::vector<unsigned int>> faces;
-    std::unordered_map<std::pair<unsigned int,unsigned int>, HalfEdge *, boost::hash<std::pair<unsigned int, unsigned int>>> hashmap2;
-    importOBJ(D, file_in, vertices, faces, hashmap2);
-    printDCEL(D);
-
-    // 2. group the triangles into meshes,
-    auto mesh_vertices = groupTriangles(D);
-    // 3. determine the correct orientation for each mesh and ensure all its triangles
-    //    are consistent with this correct orientation (ie. all the triangle normals
-    //    are pointing outwards).
-
-    orientMeshes(D, mesh_vertices);
-
-    // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
-    mergeCoPlanarFaces(D,tempD);
-
-
-
-    printDCEL(D);
-    D.cleanup();
-    printDCEL(D);
-
-
-
-    //search for holes
-    for (auto const& Face : D.faces()){
-        std::vector<HalfEdge*> cords;
-        HalfEdge *e = Face->exteriorEdge;
-        const HalfEdge *e_start = e;
-        do {
-           // if (e->incidentFace == e->twin->incidentFace && e_start==e){continue;}
-            if (e->incidentFace == e->twin->incidentFace){
-                cords.push_back(e);
-                Face->holes.push_back(e->next);
-                e->eliminate();
-                e->twin->eliminate();
-
-                e->prev->next = e->twin->next;
-                e->twin->next->prev = e->prev;
-
-                e->next->prev = e->twin->prev;
-                e->twin->prev->next = e->next;
-
-
-                e_start = e->next; //avoid infinite loop;
-
-                //e->twin=tempD.halfEdges().front().get();
-                //e=tempD.halfEdges().front().get();
-            }
-            e = e->next;
-        } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
-    }
-
-
-    printDCEL(D);
-    D.cleanup();
-    printDCEL(D);
-
-
-
-//Do this for every mesh (bk) find if face is interior hole or exterior and flip accordingly
-    unsigned int mesh_count=0;
- //mesh_faces contain only those faces that difine the specific mesh.for (auto const& face : D.faces()){
-        auto minc = cornerpoints(mesh_vertices[0], "min");
-        auto maxc = cornerpoints(mesh_vertices[0], "max");
-    std::vector<double> o = {-10.0 * abs(round(minc[0])), ((maxc[1] - minc[1]) / 2) + minc[1], (maxc[2]*1.5) + minc[2]+2};
-    std::vector<double> d = {D.faces().back()->exteriorEdge->origin->x,
-                 D.faces().back()->exteriorEdge->origin->y,
-                 D.faces().back()->exteriorEdge->origin->z}; //destination of ray -> a vertex of the last face of the mesh.
-
-
-            for (auto const& faces : D.faces()){
-
-            if (faces->holes.size()!=0){
-                std::vector<double> fv0{faces->exteriorEdge->origin->x, faces->exteriorEdge->origin->y,
-                                        faces->exteriorEdge->origin->z};
-                std::vector<double> fv1{faces->exteriorEdge->destination->x, faces->exteriorEdge->destination->y,
-                                        faces->exteriorEdge->destination->z};
-                std::vector<double> fv2{faces->exteriorEdge->prev->origin->x, faces->exteriorEdge->prev->origin->y,
-                                        faces->exteriorEdge->prev->origin->z};
-                HalfEdge* interior = faces->exteriorEdge; //temporary half edges to use in flip
-                HalfEdge* exterior = faces->holes.front();
-                if (!checkNormal(fv0, fv1, fv2, o, d)){
-                    faces->holes.front()=interior;
-                    faces->exteriorEdge=exterior;
-                }
-            }
-
-    mesh_count++;
-}
-
-
-            for (auto const& e:D.halfEdges()){
-                if (e->hasDanglingLink()) {
-                    e->incidentFace=e->twin->incidentFace;
-                }
-            }
-
-
-printDCEL(D);
-
-
+void exportCityJSON(DCEL & D,std::vector<std::vector<double>> vertices, const char *file_out) {
     //5. write the meshes with their faces to a valid CityJSON output file. ~~~~~~~~~~~~~~ 09-03-2021~~~~~~~~~~~~~//
+    unsigned int count = 0;
     std::fstream fl;
     fl.open(file_out, std::fstream::in | std::fstream::out | std::fstream::trunc);
     fl << "{\n\"type\": \"CityJSON\",\n\"version\": \"1.0\",\n";
-    fl
-            << "\"CityObjects\": {\"id-1\" : {\n\t\"type\": \"Building\",\n\t\"geometry\": [{\n\t\t\"type\": \"MultiSurface\",\n\t\t\"lod\": 2,\n\t\t\"boundaries\": [\n\t\t\t";
+    fl << "\"CityObjects\": {\n";
 
 
-    for (auto const &i : D.faces()) {
-        unsigned int origin = i->exteriorEdge->origin->i; //->exteriorEdge->origin->i;
-        unsigned int destination = i->exteriorEdge->destination->i;
-        unsigned int previous = i->exteriorEdge->prev->origin->i;
-        if (i == D.faces().back()) {
+    std::map<unsigned int,std::vector<Face*>> faces;
+    for (auto const&face : D.faces()){
+        faces[face->mesh].push_back(face.get());
+    }
+
+    for (unsigned int i = 0; i<faces.size(); i++) {
+
+        count++;
+        fl << "\"id-" << std::to_string(count)<<"\""
+           << ": {\n\t\"type\": \"Building\",\n\t\"geometry\": [{\n\t\t\"type\": \"MultiSurface\",\n\t\t\"lod\": 2,\n\t\t\"boundaries\": [\n\t\t\t";
+
+
+        for (auto const &i : faces.at(count)) {
+            unsigned int origin = i->exteriorEdge->origin->i; //->exteriorEdge->origin->i;
+            unsigned int destination = i->exteriorEdge->destination->i;
+            unsigned int previous = i->exteriorEdge->prev->origin->i;
+            if (i == faces.at(count).back()) {
+                fl << "[[";
+                HalfEdge *e = i->exteriorEdge;
+                const HalfEdge *e_start = e;
+                do {
+                    if (e->next != e_start) {
+                        fl << e->origin->i - 1 << ",";
+                    } else { fl << e->origin->i - 1; }
+                    e = e->next;
+                } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
+                if (i->holes.size() == 0) {
+                    if (count == faces.size()) {
+                        fl << "]]\n\t\t]\n\t}]\n";
+                    }else {fl << "]]\n\t\t]\n\t}]},\n";}
+                }
+/*Holes*/   else {
+                    fl << "],[";
+                    HalfEdge *e = i->holes.front();
+                    const HalfEdge *e_start = e;
+                    do {
+                        if (e->next != e_start) {
+                            fl << e->origin->i - 1 << ",";
+                        } else { fl << e->origin->i - 1; }
+                        e = e->next;
+                    } while (e_start != e);
+                    fl << "]]\n\t\t]\n\t}]\n";
+                }
+                break;
+            }
             fl << "[[";
             HalfEdge *e = i->exteriorEdge;
             const HalfEdge *e_start = e;
             do {
                 if (e->next != e_start) {
-                fl << e->origin->i-1 << ",";
-                } else {fl << e->origin->i-1;}
+                    fl << e->origin->i - 1 << ",";
+                } else { fl << e->origin->i - 1; }
+
                 e = e->next;
             } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
-            if (i->holes.size()==0){
-                fl << "]]\n\t\t]\n\t}]\n}},\n";
+            if (i->holes.size() == 0) {
+                fl << "]],";
             }
 /*Holes*/   else {
                 fl << "],[";
@@ -691,43 +599,25 @@ printDCEL(D);
                 const HalfEdge *e_start = e;
                 do {
                     if (e->next != e_start) {
-                        fl << e->origin->i-1 << ",";
-                    } else {fl << e->origin->i-1;}
+                        fl << e->origin->i - 1 << ",";
+                    } else { fl << e->origin->i - 1; }
                     e = e->next;
                 } while (e_start != e);
-                fl << "]]\n\t\t]\n\t}]\n}},\n";
+                fl << "]],";
             }
-            break;
         }
-        fl << "[[";
-        HalfEdge *e = i->exteriorEdge;
-        const HalfEdge *e_start = e;
-        do {
-            if (e->next != e_start) {
-                fl << e->origin->i-1 << ",";
-            } else {fl << e->origin->i-1;}
 
-            e = e->next;
-        } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
-        if (i->holes.size()==0){
-            fl << "]],";
-        }
-/*Holes*/   else {
-            fl << "],[";
-            HalfEdge *e = i->holes.front();
-            const HalfEdge *e_start = e;
-            do {
-                if (e->next != e_start) {
-                    fl << e->origin->i-1 << ",";
-                } else {fl << e->origin->i-1;}
-                e = e->next;
-            } while (e_start != e);
-            fl << "]],";
-        }
+
+
+
+
+
+        // 5. write the meshes with their faces to a valid CityJSON output file. ~~~~~~~~~~~~~~ 09-03-2021~~~~~~~~~~~~~//
+
+
+
     }
-
-
-    fl << "\"vertices\": [\n";
+    fl << "}},\n\"vertices\": [\n";
 
     for (auto const &i : vertices) {
         double x = i[0]; //->exteriorEdge->origin->i;
@@ -739,13 +629,145 @@ printDCEL(D);
         }
         fl << "\t[" << x << ", " << y << ", " << z << "],\n";
     }
-
     fl.close();
-    // 5. write the meshes with their faces to a valid CityJSON output file. ~~~~~~~~~~~~~~ 09-03-2021~~~~~~~~~~~~~//
-
-    //DemoDCEL();
-    return 0;
 }
+
+    int main(int argc, const char *argv[]) {
+        const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk_soup.obj";
+        const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk.json";
+
+        DCEL tempD;
+        Face *Ftemp = tempD.createFace();
+        Vertex *vtemp = tempD.createVertex(0, 0, 0, 1);
+        HalfEdge *etemp = tempD.createHalfEdge();
+
+        tempD.faces().front().get()->exteriorEdge = etemp;
+        tempD.faces().front().get()->exteriorEdge->origin = vtemp;
+        tempD.faces().front().get()->exteriorEdge->destination = vtemp;
+        tempD.faces().front().get()->exteriorEdge->next = etemp;
+        tempD.faces().front().get()->exteriorEdge->prev = etemp;
+        tempD.faces().front().get()->exteriorEdge->twin = etemp;
+        tempD.faces().front().get()->exteriorEdge->incidentFace = Ftemp;
+        printDCEL(tempD);
+
+
+        // create an empty DCEL
+        DCEL D;
+        // 1. read the triangle soup from the OBJ input file and convert it to the DCEL,
+        std::vector<std::vector<double>> vertices;
+        std::vector<std::vector<unsigned int>> faces;
+        std::unordered_map<std::pair<unsigned int, unsigned int>, HalfEdge *, boost::hash<std::pair<unsigned int, unsigned int>>> hashmap2;
+        importOBJ(D, file_in, vertices, faces, hashmap2);
+        printDCEL(D);
+
+        // 2. group the triangles into meshes,
+        auto mesh_vertices = groupTriangles(D);
+        // 3. determine the correct orientation for each mesh and ensure all its triangles
+        //    are consistent with this correct orientation (ie. all the triangle normals
+        //    are pointing outwards).
+        unsigned int c=0;
+        for (auto const& mesh : D.infiniteFace()->holes){
+            auto mesh_faces = getFaces(mesh);
+            c++;
+            for (auto const& face : mesh_faces) {
+                face->mesh = c;
+            }
+        }
+
+        orientMeshes(D, mesh_vertices);
+
+        // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
+        mergeCoPlanarFaces(D, tempD);
+
+
+        printDCEL(D);
+        D.cleanup();
+        printDCEL(D);
+
+
+
+        //search for holes
+        for (auto const &Face : D.faces()) {
+            std::vector<HalfEdge *> cords;
+            HalfEdge *e = Face->exteriorEdge;
+            const HalfEdge *e_start = e;
+            do {
+                // if (e->incidentFace == e->twin->incidentFace && e_start==e){continue;}
+                if (e->incidentFace == e->twin->incidentFace) {
+                    cords.push_back(e);
+                    Face->holes.push_back(e->next);
+                    e->eliminate();
+                    e->twin->eliminate();
+
+                    e->prev->next = e->twin->next;
+                    e->twin->next->prev = e->prev;
+
+                    e->next->prev = e->twin->prev;
+                    e->twin->prev->next = e->next;
+
+
+                    e_start = e->next; //avoid infinite loop;
+
+                    //e->twin=tempD.halfEdges().front().get();
+                    //e=tempD.halfEdges().front().get();
+                }
+                e = e->next;
+            } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
+        }
+
+
+        printDCEL(D);
+        D.cleanup();
+        printDCEL(D);
+
+
+
+//Do this for every mesh (bk) find if face is interior hole or exterior and flip accordingly
+        unsigned int mesh_count = 0;
+        //mesh_faces contain only those faces that difine the specific mesh.for (auto const& face : D.faces()){
+        auto minc = cornerpoints(mesh_vertices[0], "min");
+        auto maxc = cornerpoints(mesh_vertices[0], "max");
+        std::vector<double> o = {-10.0 * abs(round(minc[0])), ((maxc[1] - minc[1]) / 2) + minc[1],
+                                 (maxc[2] * 1.5) + minc[2] + 2};
+        std::vector<double> d = {D.faces().back()->exteriorEdge->origin->x,
+                                 D.faces().back()->exteriorEdge->origin->y,
+                                 D.faces().back()->exteriorEdge->origin->z}; //destination of ray -> a vertex of the last face of the mesh.
+
+
+        for (auto const &faces : D.faces()) {
+
+            if (faces->holes.size() != 0) {
+                std::vector<double> fv0{faces->exteriorEdge->origin->x, faces->exteriorEdge->origin->y,
+                                        faces->exteriorEdge->origin->z};
+                std::vector<double> fv1{faces->exteriorEdge->destination->x, faces->exteriorEdge->destination->y,
+                                        faces->exteriorEdge->destination->z};
+                std::vector<double> fv2{faces->exteriorEdge->prev->origin->x, faces->exteriorEdge->prev->origin->y,
+                                        faces->exteriorEdge->prev->origin->z};
+                HalfEdge *interior = faces->exteriorEdge; //temporary half edges to use in flip
+                HalfEdge *exterior = faces->holes.front();
+                if (!checkNormal(fv0, fv1, fv2, o, d)) {
+                    faces->holes.front() = interior;
+                    faces->exteriorEdge = exterior;
+                }
+            }
+
+            mesh_count++;
+        }
+
+
+        for (auto const &e:D.halfEdges()) {
+            if (e->hasDanglingLink()) {
+                e->incidentFace = e->twin->incidentFace;
+            }
+        }
+
+
+        printDCEL(D);
+
+        exportCityJSON(D, vertices, file_out);
+        //DemoDCEL();
+        return 0;
+    }
 
     void printDCEL(DCEL &D) {
 
@@ -777,151 +799,6 @@ printDCEL(D);
         for (const auto &f : faces) {
             std::cout << "  * " << *f << "\n";
         }
-
-    }
-
-
-    void DemoDCEL() {
-
-        std::cout << "/// STEP 1 Creating empty DCEL...\n";
-        DCEL D;
-        printDCEL(D);
-
-        /*
-
-        v2 (0,1,0)
-         o
-         |\
-         | \
-         |  \
-         o---o v1 (1,0,0)
-        v0
-        (0,0,0)
-
-        We will construct the DCEL of a single triangle
-        in the plane z=0 (as shown above).
-
-        This will require:
-          3 vertices
-          6 halfedges (2 for each edge)
-          1 face
-
-        */
-        std::cout << "\n/// STEP 2 Adding triangle vertices...\n";
-        Vertex *v0 = D.createVertex(0, 0, 0, 1);
-        Vertex *v1 = D.createVertex(1, 0, 0, 2);
-        Vertex *v2 = D.createVertex(0, 1, 0, 3);
-        printDCEL(D);
-
-        std::cout << "\n/// STEP 3 Adding triangle half-edges...\n";
-        HalfEdge *e0 = D.createHalfEdge();
-        HalfEdge *e1 = D.createHalfEdge();
-        HalfEdge *e2 = D.createHalfEdge();
-        HalfEdge *e3 = D.createHalfEdge();
-        HalfEdge *e4 = D.createHalfEdge();
-        HalfEdge *e5 = D.createHalfEdge();
-        printDCEL(D);
-
-        std::cout << "\n/// STEP 4 Adding triangle face...\n";
-        Face *f0 = D.createFace();
-        printDCEL(D);
-
-        std::cout << "\n/// STEP 5 Setting links...\n";
-        e0->origin = v0;
-        e0->destination = v1;
-        e0->twin = e3;
-        e0->next = e1;
-        e0->prev = e2;
-        e0->incidentFace = f0;
-
-        e3->origin = v1;
-        e3->destination = v0;
-        e3->twin = e0;
-        e3->next = e5;
-        e3->prev = e4;
-
-        /*
-        If a half-edge is incident to 'open space' (ie not an actual face with an exterior boundary),
-        we use the infiniteFace which is predifined in the DCEL class
-        */
-        e3->incidentFace = D.infiniteFace();
-
-        e1->origin = v1;
-        e1->destination = v2;
-        e1->twin = e4;
-        e1->next = e2;
-        e1->prev = e0;
-        e1->incidentFace = f0;
-
-        e4->origin = v2;
-        e4->destination = v1;
-        e4->twin = e1;
-        e4->next = e3;
-        e4->prev = e5;
-        e4->incidentFace = D.infiniteFace();
-
-        e2->origin = v2;
-        e2->destination = v0;
-        e2->twin = e5;
-        e2->next = e0;
-        e2->prev = e1;
-        e2->incidentFace = f0;
-
-        e5->origin = v0;
-        e5->destination = v2;
-        e5->twin = e2;
-        e5->next = e4;
-        e5->prev = e3;
-        e5->incidentFace = D.infiniteFace();
-
-        f0->exteriorEdge = e0;
-        printDCEL(D);
-
-
-        std::cout << "\n/// STEP 6 Traversing exterior vertices of f0...\n";
-        /*
-        if all is well in the DCEL, following a chain of half-edges (ie keep going to e.next)
-        should lead us back the the half-edge where we started.
-        */
-        HalfEdge *e = f0->exteriorEdge;
-        const HalfEdge *e_start = e;
-        do {
-            std::cout << " -> " << *e->origin << "\n";
-            e = e->next;
-        } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
-
-
-        std::cout << "\n/// STEP 7 eliminating v0...\n";
-        v0->eliminate();
-        printDCEL(D);
-
-        /*
-        We just eliminated v0. At the same time we know there are elements that still
-        pointers to v0 (ie the edges e0, e2, e3, e5). This means we can NOT call D.cleanup()!
-        If you do this anyways, the program may crash.
-
-        Eg. if you uncomment the following there could be a crash/stall of the program.
-        */
-        // D.cleanup(); // this will remove v0 from memory (because we just eliminated v0 and the cleanup() function simply removes all the eliminated elements)
-        // std::cout << *v0 << "\n"; // we try to access that memory, but v0 is gone -> undefined behaviour
-        // std::cout << *e0->origin << "\n"; // this equivalent to the previous line (both point to the same memory address)
-
-
-        std::cout << "\n/// STEP 8 eliminating all the remaining DCEL elements\n";
-        for (const auto &v : D.vertices()) {
-            v->eliminate();
-        }
-        for (const auto &e : D.halfEdges()) {
-            e->eliminate();
-        }
-        for (const auto &f : D.faces()) {
-            f->eliminate();
-        }
-        printDCEL(D);
-
-        std::cout << "\n/// STEP 9 cleaning up the DCEL\n";
-        D.cleanup();
-        printDCEL(D);
 
     }
 
