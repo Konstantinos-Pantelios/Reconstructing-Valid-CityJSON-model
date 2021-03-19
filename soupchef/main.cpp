@@ -14,6 +14,8 @@
 #include <algorithm>
 
 
+
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmultichar"
 // forward declarations; these functions are given below main()
@@ -629,10 +631,30 @@ void exportCityJSON(DCEL & D,std::vector<std::vector<double>> vertices, const ch
     }
     fl.close();
 }
+/*
+bool clocktest(std::vector<double> a, std::vector<double> b, std::vector<double> c){
+    int i,j;
+    double det;
+    double mat[3][3];
+    for (i=0; i < 2; i++){
+        for (j=0; j<2; j++){
+            if (i==1){
+            mat[i][j]=a[j];}
+            else if (i==1){
+            mat[i][j]=b[j];}
+            else if (i==2){
+            mat[i][j]=c[j];}
+            }}
+    mat[0][2]=1; mat[1][2]=1; mat[2][2]=1;
 
+
+
+return true;
+}
+ */
     int main(int argc, const char *argv[]) {
-        const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cube_soup.obj";
-        const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/cubes.json";
+        const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk_soup.obj";
+        const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk.json";
 
         DCEL tempD;
         Face *Ftemp = tempD.createFace();
@@ -718,8 +740,39 @@ void exportCityJSON(DCEL & D,std::vector<std::vector<double>> vertices, const ch
         D.cleanup();
         printDCEL(D);
 
+        for (auto const &faces : D.faces()) {
+            double distance = 0;double distance2=0;
+            if (faces->holes.size() != 0) {
 
+                for (auto const& hole : faces->holes){
+                    HalfEdge *e = faces->exteriorEdge;
+                    const HalfEdge *e_start = e;
+                    do {
+                        distance = distance + sqrt(pow((e->destination->x - e->origin->x),2)+pow((e->destination->y - e->origin->y),2)+pow((e->destination->z - e->origin->z),2));
+                        e=e->next;
+                    } while (e_start != e);
+                    HalfEdge *eh = faces->holes.front();
+                    const HalfEdge *eh_start = eh;
+                    do {
+                        distance2 = distance2 + sqrt(pow((eh->destination->x - eh->origin->x),2)+pow((eh->destination->y - eh->origin->y),2)+pow((eh->destination->z - eh->origin->z),2));
+                        eh=eh->next;
+                    } while (eh_start != eh);
+                }
+                HalfEdge *interior = faces->exteriorEdge;
+                HalfEdge *exterior = faces->holes.front();
+                if (distance < distance2){
+                    faces->holes.front() = interior;
+                    faces->exteriorEdge = exterior;
+                }
+            }
+            }
+    for (auto const &e:D.halfEdges()) {
+        if (e->hasDanglingLink()) {
+            e->incidentFace = e->twin->incidentFace;
+        }
+    }
 
+/*
 //Do this for every mesh (bk) find if face is interior hole or exterior and flip accordingly
         unsigned int mesh_count = 0;
         //mesh_faces contain only those faces that difine the specific mesh.for (auto const& face : D.faces()){
@@ -729,9 +782,7 @@ void exportCityJSON(DCEL & D,std::vector<std::vector<double>> vertices, const ch
                                  (maxc[2] * 1.5) + minc[2] + 2};
         std::vector<double> d = {D.faces().back()->exteriorEdge->origin->x,
                                  D.faces().back()->exteriorEdge->origin->y,
-                                 D.faces().back()->exteriorEdge->origin->z}; //destination of ray -> a vertex of the last face of the mesh.
-
-
+                                 D.faces().back()->exteriorEdge->origin->z};
         for (auto const &faces : D.faces()) {
 
             if (faces->holes.size() != 0) {
@@ -741,29 +792,21 @@ void exportCityJSON(DCEL & D,std::vector<std::vector<double>> vertices, const ch
                                         faces->exteriorEdge->destination->z};
                 std::vector<double> fv2{faces->exteriorEdge->prev->origin->x, faces->exteriorEdge->prev->origin->y,
                                         faces->exteriorEdge->prev->origin->z};
-                HalfEdge *interior = faces->exteriorEdge; //temporary half edges to use in flip
+                HalfEdge *interior = faces->exteriorEdge;
                 HalfEdge *exterior = faces->holes.front();
                 if (!checkNormal(fv0, fv1, fv2, o, d)) {
                     faces->holes.front() = interior;
                     faces->exteriorEdge = exterior;
                 }
             }
-
             mesh_count++;
         }
 
-
-        for (auto const &e:D.halfEdges()) {
-            if (e->hasDanglingLink()) {
-                e->incidentFace = e->twin->incidentFace;
-            }
-        }
-
+*/
 
         printDCEL(D);
 
         exportCityJSON(D, vertices, file_out);
-        //DemoDCEL();
         return 0;
     }
 
