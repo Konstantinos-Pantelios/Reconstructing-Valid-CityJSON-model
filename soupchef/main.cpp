@@ -10,7 +10,6 @@
 #include <cmath>
 #include <boost/functional/hash.hpp>
 #include <stack>
-#include <deque>
 #include <algorithm>
 
 
@@ -21,55 +20,6 @@
 // forward declarations; these functions are given below main()
 void DemoDCEL();
 void printDCEL(DCEL & D);
-/*bool rayTriangleIntersect(const std::vector<double> orig, std::vector<double> dir, const Face* f)
-{
-    auto v0= f->exteriorEdge->origin;
-    auto v1= f->exteriorEdge->destination;
-    auto v2= f->exteriorEdge->prev->origin;
-    std::vector<double> v0v1 = {v1->x - v0->x, v1->y-v0->y, v1->z-v0->z};
-    std::vector<double> v0v2 = {v2->x - v0->x, v2->y-v0->y, v2->z-v0->z};
-
-
-    std::vector<double> pvec = {dir[1] * v0v2[2] - dir[2]*v0v2[1], -(dir[0]*v0v2[2]-dir[2]*v0v2[0]), dir[0]*v0v2[1-dir[1]*v0v2[0]]};
-            //dir.cross(v0v2);
-    float det = v0v1[0]*pvec[0] + v0v1[1]*pvec[1] + v0v1[2]*pvec[2];
-            //v0v1.dot(pvec);
-
-    if (det < 0.000001)
-        return false;
-
-    float invDet = 1.0 / det;
-
-    std::vector<double> tvec = {orig[0] - v0->x, orig[1]-v0->y, orig[2]-v0->z};
-
-    float tvec_dot_pvec = tvec[0]*pvec[0] + tvec[1]*pvec[1] + tvec[2] * pvec[2];
-    float u = tvec_dot_pvec * invDet;
-
-    if (u < 0 || u > 1)
-        return false;
-
-    std::vector<double> qvec =  {tvec[1] * v0v1[2] - tvec[2]*v0v1[1], -(tvec[0]*v0v1[2]-tvec[2]*v0v1[0]), tvec[0]*v0v1[1-tvec[1]*v0v1[0]]};
-            //tvec.cross(v0v1);
-
-    float dir_dot_qvec = dir[0]*qvec[0] + dir[1]*qvec[1] + dir[2] * qvec[2];
-    float v = dir_dot_qvec * invDet;
-
-    if (v < 0 || u + v > 1)
-        return false;
-
-    float v0v2_dot_qvec = v0v2[0]*qvec[0] + v0v2[1]*qvec[1] + v0v2[2] * qvec[2];
-    float t = v0v2_dot_qvec * invDet;
-
-    if (t > 0.000001) // ray intersection
-    {
-        return true;
-    }
-    else // This means that there is a line intersection but not a ray intersection.
-        return true;
-
-    return true;
-}
-*/ // Other intersection method. Not used.
 //~~~~~~~~~~~~~~~~~~~~~ 09-03-2021 Read .obj file into memory - vertices and faces ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 void read(const char *file_in, std::vector<std::vector<double>> &v, std::vector<std::vector<unsigned int>> &f) {
     std::ifstream stream_in;
@@ -117,8 +67,6 @@ std::vector<double> cornerpoints(std::vector<std::vector<double>> v, const std::
         return {minx,miny,minz}; //-1 to go out of bounds
     }
 }
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~  19/02/21 Function to calculate SIGNED VOLUME of tetrahedron  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 float signed_volume(Vertex* a, Vertex* b, Vertex* c, std::vector<double> d) {
 
     std::vector<double> ad = {a->x-d[0], a->y-d[1], a->z-d[2]};
@@ -128,9 +76,6 @@ float signed_volume(Vertex* a, Vertex* b, Vertex* c, std::vector<double> d) {
     auto dotadcross = ad[0]*crossbdcd[0] + ad[1]*crossbdcd[1] + ad[2]*crossbdcd[2];
     return dotadcross/6;
 }
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~  19/02/21 Function to calculate SIGNED VOLUME of tetrahedron  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~  19/02/21 Function to fine plane equation and test if 2 two points are on the opposite side ot the plane  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 bool planetest(std::vector<double> orig, std::vector<double> des, Vertex* v, Vertex* vop1, Vertex* vop2 ){
     double a = (des[1] - orig[1]) * (v->z - orig[2]) - (v->y - orig[1]) * (des[2] - orig[2]);
     double b = (v->x - orig[0]) * (des[2] - orig[2]) - (des[0] - orig[0]) * (v->z - orig[2]);
@@ -141,9 +86,6 @@ bool planetest(std::vector<double> orig, std::vector<double> des, Vertex* v, Ver
     if (dist1 * dist2 > 0) {return false;} //~~~~~~~~~~21/02/2021 ">="disregard the case where segment lies on the triangle plane ~~~~~ NOTE: fixes major issues but ignores some valid cases ~~~~~~~~//
     return true;
 }
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~  19/02/21 Function to fine plane equation and test if 2 two points are on the opposite side ot the plane  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~  19/02/21 Function to test intersection between line segment and triangle ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 bool intersects(std::vector<double> o, std::vector<double> d, Face* i) {
 
     float signed_or = signed_volume(i->exteriorEdge->origin, i->exteriorEdge->destination, i->exteriorEdge->prev->origin, o);
@@ -158,7 +100,6 @@ bool intersects(std::vector<double> o, std::vector<double> d, Face* i) {
         return false;
     }
 }
-
 Face* min_distance(std::vector<double> o, std::vector<Face *> ray_face){
     std::map<Face*,double> dist;
     for(auto const &j: ray_face){
@@ -185,7 +126,6 @@ Face* min_distance(std::vector<double> o, std::vector<Face *> ray_face){
     }
 return in;
 }
-
 bool checkNormal(std::vector<double> v0,std::vector<double> v1, std::vector<double> v2, std::vector<double>& o,std::vector<double>& d){
     std::vector<double> U = {v1[0]-v0[0], v1[1] - v0[1], v1[2] - v0[2]};
     std::vector<double> V = {v2[0]-v0[0], v2[1] - v0[1], v2[2] - v0[2]};
@@ -197,7 +137,6 @@ bool checkNormal(std::vector<double> v0,std::vector<double> v1, std::vector<doub
     std::vector<double> ray = {d[0]-o[0], d[1]-o[1], d[2]-o[2]};
     double angle = acos((Nor[0]*ray[0] + Nor[1]*ray[1] + Nor[2]*ray[2]) / sqrt((Nor[0]*Nor[0]+Nor[1]*Nor[1]+Nor[2]*Nor[2]) * (ray[0]*ray[0]+ray[1]*ray[1]+ray[2]*ray[2])));
     double dot = Nor[0]*ray[0] + Nor[1]*ray[1] + Nor[2]*ray[2];
-    std::cout<<dot<<" "<<angle <<std::endl;
     if (dot<0) return true; //The correct orientation is when dot is negative (means that the vectors have opposite-like direction.
     else if (dot>0) return false;
     else std::cout << "dot is 0";  //Think about the vertical case of dot=0/ Think of many cases if it waorks every time.
@@ -245,11 +184,7 @@ void flip012_201(Face* triangle){
     triangle->exteriorEdge->prev->destination = t0 ;
     triangle->exteriorEdge->prev->next = e0;
     triangle->exteriorEdge->prev->prev = e2;
-
-
-    //std::cout<<"flipped\n";
 }
-
 std::vector<double> Centroid(HalfEdge *f){
     auto v0 = f->origin;
     auto v1 = f->destination;
@@ -257,7 +192,6 @@ std::vector<double> Centroid(HalfEdge *f){
     std::vector<double> c = {(v0->x+v1->x+v2->x)/3, (v0->y+v1->y+v2->y)/3, (v0->z+v1->z+v2->z)/3};
     return c;
 }
-
 std::vector<Face* > getFaces(HalfEdge* edge){
     std::vector<Face* > toreturn;
     std::stack<Face* > facestack;
@@ -489,9 +423,6 @@ void mergeCoPlanarFaces(DCEL & D, DCEL& tempD) {
                     continue;
                     }
                 if (angle(curr_norm,neigh_norm) <= 1){
-
-
-                    //if(e_start == e){std::cout<<"maybe\n";continue;} //uncoment to run it but without merges.
                     e->eliminate(); // Eliminate the edge of checking face
                     e->twin->eliminate(); //Eliminate the twin of the checking edge. aka the edge of neighbor face.
 
@@ -631,27 +562,6 @@ void exportCityJSON(DCEL & D,std::vector<std::vector<double>> vertices, const ch
     }
     fl.close();
 }
-/*
-bool clocktest(std::vector<double> a, std::vector<double> b, std::vector<double> c){
-    int i,j;
-    double det;
-    double mat[3][3];
-    for (i=0; i < 2; i++){
-        for (j=0; j<2; j++){
-            if (i==1){
-            mat[i][j]=a[j];}
-            else if (i==1){
-            mat[i][j]=b[j];}
-            else if (i==2){
-            mat[i][j]=c[j];}
-            }}
-    mat[0][2]=1; mat[1][2]=1; mat[2][2]=1;
-
-
-
-return true;
-}
- */
     int main(int argc, const char *argv[]) {
         const char *file_in = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk_soup.obj";
         const char *file_out = "/home/konstantinos/Desktop/TUDelft-Courses/Q3/GEO1004/hw2/bk.json";
@@ -678,7 +588,7 @@ return true;
         std::vector<std::vector<unsigned int>> faces;
         std::unordered_map<std::pair<unsigned int, unsigned int>, HalfEdge *, boost::hash<std::pair<unsigned int, unsigned int>>> hashmap2;
         importOBJ(D, file_in, vertices, faces, hashmap2);
-        printDCEL(D);
+        //printDCEL(D);
 
         // 2. group the triangles into meshes,
         auto mesh_vertices = groupTriangles(D);
@@ -699,14 +609,13 @@ return true;
         // 4. merge adjacent triangles that are co-planar into larger polygonal faces.
         mergeCoPlanarFaces(D, tempD);
 
-
-        printDCEL(D);
+//        printDCEL(D);
         D.cleanup();
-        printDCEL(D);
+//        printDCEL(D);
 
 
 
-        //search for holes
+        // 4.1 search for holes
         for (auto const &Face : D.faces()) {
             std::vector<HalfEdge *> cords;
             HalfEdge *e = Face->exteriorEdge;
@@ -727,20 +636,17 @@ return true;
 
 
                     e_start = e->next; //avoid infinite loop;
-
-                    //e->twin=tempD.halfEdges().front().get();
-                    //e=tempD.halfEdges().front().get();
                 }
                 e = e->next;
-            } while (e_start != e); // we stop the loop when e_start==e (ie. we are back where we started)
+            } while (e_start != e);
         }
 
 
-        printDCEL(D);
+//        printDCEL(D);
         D.cleanup();
-        printDCEL(D);
+//        printDCEL(D);
 
-        for (auto const &faces : D.faces()) {
+    for (auto const &faces : D.faces()) {
             double distance = 0;double distance2=0;
             if (faces->holes.size() != 0) {
 
@@ -772,40 +678,9 @@ return true;
         }
     }
 
-/*
-//Do this for every mesh (bk) find if face is interior hole or exterior and flip accordingly
-        unsigned int mesh_count = 0;
-        //mesh_faces contain only those faces that difine the specific mesh.for (auto const& face : D.faces()){
-        auto minc = cornerpoints(mesh_vertices[0], "min");
-        auto maxc = cornerpoints(mesh_vertices[0], "max");
-        std::vector<double> o = {-10.0 * abs(round(minc[0])), ((maxc[1] - minc[1]) / 2) + minc[1],
-                                 (maxc[2] * 1.5) + minc[2] + 2};
-        std::vector<double> d = {D.faces().back()->exteriorEdge->origin->x,
-                                 D.faces().back()->exteriorEdge->origin->y,
-                                 D.faces().back()->exteriorEdge->origin->z};
-        for (auto const &faces : D.faces()) {
-
-            if (faces->holes.size() != 0) {
-                std::vector<double> fv0{faces->exteriorEdge->origin->x, faces->exteriorEdge->origin->y,
-                                        faces->exteriorEdge->origin->z};
-                std::vector<double> fv1{faces->exteriorEdge->destination->x, faces->exteriorEdge->destination->y,
-                                        faces->exteriorEdge->destination->z};
-                std::vector<double> fv2{faces->exteriorEdge->prev->origin->x, faces->exteriorEdge->prev->origin->y,
-                                        faces->exteriorEdge->prev->origin->z};
-                HalfEdge *interior = faces->exteriorEdge;
-                HalfEdge *exterior = faces->holes.front();
-                if (!checkNormal(fv0, fv1, fv2, o, d)) {
-                    faces->holes.front() = interior;
-                    faces->exteriorEdge = exterior;
-                }
-            }
-            mesh_count++;
-        }
-
-*/
 
         printDCEL(D);
-
+        // 5. Export CityJson file into file_out
         exportCityJSON(D, vertices, file_out);
         return 0;
     }
